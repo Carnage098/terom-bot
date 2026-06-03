@@ -148,5 +148,96 @@ async def players(interaction: discord.Interaction):
     await interaction.response.send_message(
         f"📋 Participants :\n\n{message}"
     )
+@bot.tree.command(name="report_result")
+@app_commands.describe(
+    match_id="ID du match",
+    score="Exemple : 2-1"
+)
+async def report_result(
+    interaction: discord.Interaction,
+    match_id: int,
+    score: str
+):
 
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute("""
+        UPDATE matches
+        SET score = ?,
+            winner_id = ?,
+            status = 'pending'
+        WHERE id = ?
+        """,
+        (
+            score,
+            str(interaction.user.id),
+            match_id
+        ))
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"✅ Résultat soumis pour le match #{match_id}. En attente de validation."
+    ) 
+    @bot.tree.command(name="report_result")
+@app_commands.describe(
+    match_id="ID du match",
+    score="Exemple : 2-1"
+)
+async def report_result(
+    interaction: discord.Interaction,
+    match_id: int,
+    score: str
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute("""
+        UPDATE matches
+        SET score = ?,
+            winner_id = ?,
+            status = 'pending'
+        WHERE id = ?
+        """,
+        (
+            score,
+            str(interaction.user.id),
+            match_id
+        ))
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"✅ Résultat soumis pour le match #{match_id}. En attente de validation."
+    )
+    @bot.tree.command(name="approve_result")
+@app_commands.describe(match_id="ID du match")
+async def approve_result(
+    interaction: discord.Interaction,
+    match_id: int
+):
+
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute("""
+        UPDATE matches
+        SET status = 'approved'
+        WHERE id = ?
+        """,
+        (match_id,)
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"🏆 Match #{match_id} validé."
+    )
+    
 bot.run(TOKEN)
