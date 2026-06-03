@@ -1112,6 +1112,51 @@ async def deck_graph(
     await interaction.response.send_message(
         file=discord.File(filename)
     )
-    
+from exporter import export_matches
+@bot.tree.command(
+    name="export_tournament",
+    description="Exporter le tournoi"
+)
+async def export_tournament(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                player_name,
+                opponent_name,
+                score,
+                player_deck,
+                opponent_deck,
+                status
+            FROM matches
+            """
+        )
+
+        matches = await cursor.fetchall()
+
+    filename = "tournoi.csv"
+
+    export_matches(
+        matches,
+        filename
+    )
+
+    await interaction.response.send_message(
+        file=discord.File(filename)
+    )
+
 bot.run(TOKEN)
 
