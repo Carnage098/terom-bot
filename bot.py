@@ -1057,6 +1057,61 @@ async def reset_tournament(
     await interaction.response.send_message(
         "⚠️ Tournoi réinitialisé."
     )
+from charts import create_deck_graph
+@bot.tree.command(
+    name="deck_graph",
+    description="Graphique des decks les plus joués"
+)
+async def deck_graph(
+    interaction: discord.Interaction
+):
 
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT player_deck
+            FROM matches
+            WHERE status='approved'
+            """
+        )
+
+        decks = await cursor.fetchall()
+
+    counts = {}
+
+    for deck in decks:
+
+        deck_name = deck[0] or "Autres"
+
+        counts[deck_name] = (
+            counts.get(deck_name, 0) + 1
+        )
+
+    if not counts:
+
+        await interaction.response.send_message(
+            "❌ Aucune donnée."
+        )
+
+        return
+
+    data = sorted(
+        counts.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    filename = "deck_graph.png"
+
+    create_deck_graph(
+        data,
+        filename
+    )
+
+    await interaction.response.send_message(
+        file=discord.File(filename)
+    )
+    
 bot.run(TOKEN)
 
