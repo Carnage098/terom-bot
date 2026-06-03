@@ -6,40 +6,51 @@ import os
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
+# -----------------------------
+# BOT CONFIG
+# -----------------------------
 
-# --------------------
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents
+)
+
+# -----------------------------
 # DATABASE
-# --------------------
+# -----------------------------
 
 async def init_db():
+
     async with aiosqlite.connect("database.db") as db:
 
         await db.execute("""
         CREATE TABLE IF NOT EXISTS tournaments(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            active INTEGER
+            name TEXT NOT NULL,
+            active INTEGER DEFAULT 1
         )
         """)
 
         await db.execute("""
         CREATE TABLE IF NOT EXISTS players(
-            discord_id TEXT,
-            username TEXT,
-            deck TEXT
+            discord_id TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            deck TEXT NOT NULL
         )
         """)
 
         await db.commit()
 
-# --------------------
+# -----------------------------
 # EVENTS
-# --------------------
+# -----------------------------
 
 @bot.event
 async def on_ready():
+
     await init_db()
 
     try:
@@ -50,12 +61,17 @@ async def on_ready():
 
     print(f"Connecté en tant que {bot.user}")
 
-# --------------------
+# -----------------------------
 # CREATE TOURNAMENT
-# --------------------
+# -----------------------------
 
-@bot.tree.command(name="create_tournament")
-@app_commands.describe(name="Nom du tournoi")
+@bot.tree.command(
+    name="create_tournament",
+    description="Créer un tournoi"
+)
+@app_commands.describe(
+    name="Nom du tournoi"
+)
 async def create_tournament(
     interaction: discord.Interaction,
     name: str
@@ -63,7 +79,7 @@ async def create_tournament(
 
     if not interaction.user.guild_permissions.manage_guild:
         await interaction.response.send_message(
-            "Tu n'as pas la permission.",
+            "❌ Permission refusée.",
             ephemeral=True
         )
         return
@@ -77,7 +93,7 @@ async def create_tournament(
         await db.execute(
             """
             INSERT INTO tournaments(name, active)
-            VALUES(?, 1)
+            VALUES (?, 1)
             """,
             (name,)
         )
@@ -88,12 +104,49 @@ async def create_tournament(
         f"🏆 Tournoi créé : **{name}**"
     )
 
-# --------------------
-# REGISTER
-# --------------------
+# -----------------------------
+# CURRENT TOURNAMENT
+# -----------------------------
 
-@bot.tree.command(name="register")
-@app_commands.describe(deck="Nom du deck")
+@bot.tree.command(
+    name="tournament",
+    description="Afficher le tournoi actif"
+)
+async def tournament(interaction: discord.Interaction):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT id, name
+            FROM tournaments
+            WHERE active = 1
+            """
+        )
+
+        tournament = await cursor.fetchone()
+
+    if not tournament:
+        await interaction.response.send_message(
+            "❌ Aucun tournoi actif."
+        )
+        return
+
+    await interaction.response.send_message(
+        f"🏆 Tournoi actif : **{tournament[1]}** (ID {tournament[0]})"
+    )
+
+# -----------------------------
+# REGISTER
+# -----------------------------
+
+@bot.tree.command(
+    name="register",
+    description="S'inscrire au tournoi"
+)
+@app_commands.describe(
+    deck="Nom du deck joué"
+)
 async def register(
     interaction: discord.Interaction,
     deck: str
@@ -101,10 +154,34 @@ async def register(
 
     async with aiosqlite.connect("database.db") as db:
 
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM players
+            WHERE discord_id = ?
+            """,
+            (str(interaction.user.id),)
+        )
+
+        existing = await cursor.fetchone()
+
+        if existing:
+
+            await interaction.response.send_message(
+                "❌ Tu es déjà inscrit.",
+                ephemeral=True
+            )
+
+            return
+
         await db.execute(
             """
-            INSERT INTO players
-            VALUES(?,?,?)
+            INSERT INTO players(
+                discord_id,
+                username,
+                deck
+            )
+            VALUES (?, ?, ?)
             """,
             (
                 str(interaction.user.id),
@@ -116,128 +193,123 @@ async def register(
         await db.commit()
 
     await interaction.response.send_message(
-        f"✅ {interaction.user.mention} inscrit avec le deck **{deck}**"
+        f"✅ {interaction.user.mention} inscrit avec **{deck}**"
     )
 
-# --------------------
-# PLAYERS LIST
-# --------------------
+# -----------------------------
+# UNREGISTER
+# -----------------------------
 
-@bot.tree.command(name="players")
-async def players(interaction: discord.Interaction):
+@bot.tree.command(
+    name="unregister",
+    description="Se désinscrire"
+)
+async def unregister(
+    interaction: discord.Interaction
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute(
+            """
+            DELETE FROM players
+            WHERE discord_id = ?
+            """,
+            (str(interaction.user.id),)
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        "🗑️ Désinscription effectuée."
+    )
+
+# -----------------------------
+# PLAYERS
+# -----------------------------
+
+@bot.tree.command(
+    name="players",
+    description="Afficher les participants"
+)
+async def players(
+    interaction: discord.Interaction
+):
 
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT username, deck FROM players"
+            """
+            SELECT username, deck
+            FROM players
+            ORDER BY username
+            """
         )
 
         players = await cursor.fetchall()
 
     if not players:
+
         await interaction.response.send_message(
-            "Aucun joueur inscrit."
+            "❌ Aucun joueur inscrit."
         )
+
         return
 
     message = ""
 
-    for player in players:
-        message += f"• {player[0]} ({player[1]})\n"
+    for username, deck in players:
+
+        message += f"• {username} ({deck})\n"
 
     await interaction.response.send_message(
-        f"📋 Participants :\n\n{message}"
+        f"📋 Participants\n\n{message}"
     )
-@bot.tree.command(name="report_result")
-@app_commands.describe(
-    match_id="ID du match",
-    score="Exemple : 2-1"
+
+# -----------------------------
+# STANDINGS
+# -----------------------------
+
+@bot.tree.command(
+    name="standings",
+    description="Afficher le classement"
 )
-async def report_result(
-    interaction: discord.Interaction,
-    match_id: int,
-    score: str
+async def standings(
+    interaction: discord.Interaction
 ):
 
     async with aiosqlite.connect("database.db") as db:
 
-        await db.execute("""
-        UPDATE matches
-        SET score = ?,
-            winner_id = ?,
-            status = 'pending'
-        WHERE id = ?
-        """,
-        (
-            score,
-            str(interaction.user.id),
-            match_id
-        ))
-
-        await db.commit()
-
-    await interaction.response.send_message(
-        f"✅ Résultat soumis pour le match #{match_id}. En attente de validation."
-    ) 
-    @bot.tree.command(name="report_result")
-@app_commands.describe(
-    match_id="ID du match",
-    score="Exemple : 2-1"
-)
-async def report_result(
-    interaction: discord.Interaction,
-    match_id: int,
-    score: str
-):
-
-    async with aiosqlite.connect("database.db") as db:
-
-        await db.execute("""
-        UPDATE matches
-        SET score = ?,
-            winner_id = ?,
-            status = 'pending'
-        WHERE id = ?
-        """,
-        (
-            score,
-            str(interaction.user.id),
-            match_id
-        ))
-
-        await db.commit()
-
-    await interaction.response.send_message(
-        f"✅ Résultat soumis pour le match #{match_id}. En attente de validation."
-    )
-    @bot.tree.command(name="approve_result")
-@app_commands.describe(match_id="ID du match")
-async def approve_result(
-    interaction: discord.Interaction,
-    match_id: int
-):
-
-    if not interaction.user.guild_permissions.manage_guild:
-        await interaction.response.send_message(
-            "Permission refusée.",
-            ephemeral=True
+        cursor = await db.execute(
+            """
+            SELECT username
+            FROM players
+            ORDER BY username
+            """
         )
+
+        players = await cursor.fetchall()
+
+    if not players:
+
+        await interaction.response.send_message(
+            "❌ Aucun joueur."
+        )
+
         return
 
-    async with aiosqlite.connect("database.db") as db:
+    classement = "🏆 Classement\n\n"
 
-        await db.execute("""
-        UPDATE matches
-        SET status = 'approved'
-        WHERE id = ?
-        """,
-        (match_id,)
-        )
+    for index, player in enumerate(players, start=1):
 
-        await db.commit()
+        classement += f"{index}. {player[0]}\n"
 
     await interaction.response.send_message(
-        f"🏆 Match #{match_id} validé."
+        classement
     )
-    
+
+# -----------------------------
+# RUN
+# -----------------------------
+
 bot.run(TOKEN)
