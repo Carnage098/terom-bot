@@ -362,6 +362,174 @@ async def pending_results(
         )
 
     await interaction.response.send_message(msg)
+# ==================================
+# APPROVE RESULT
+# ==================================
 
+@bot.tree.command(
+    name="approve_result",
+    description="Valider un résultat"
+)
+async def approve_result(
+    interaction: discord.Interaction,
+    match_id: int
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                id,
+                player_team,
+                opponent_team,
+                score,
+                status
+            FROM matches
+            WHERE id = ?
+            """,
+            (match_id,)
+        )
+
+        match = await cursor.fetchone()
+
+        if not match:
+
+            await interaction.response.send_message(
+                "❌ Match introuvable."
+            )
+
+            return
+
+        if match[4] != "pending":
+
+            await interaction.response.send_message(
+                "❌ Match déjà traité."
+            )
+
+            return
+
+        player_team = match[1]
+        opponent_team = match[2]
+        score = match[3]
+
+        player_wins = int(score.split("-")[0])
+        opponent_wins = int(score.split("-")[1])
+
+        winner_team = player_team
+        loser_team = opponent_team
+
+        if opponent_wins > player_wins:
+
+            winner_team = opponent_team
+            loser_team = player_team
+
+        # équipe gagnante +1
+
+        await db.execute(
+            """
+            UPDATE teams
+            SET points = points + 1
+            WHERE name = ?
+            """,
+            (winner_team,)
+        )
+
+        # équipe perdante -1 (minimum 0)
+
+        cursor = await db.execute(
+            """
+            SELECT points
+            FROM teams
+            WHERE name = ?
+            """,
+            (loser_team,)
+        )
+
+        result = await cursor.fetchone()
+
+        if result:
+
+            current_points = result[0]
+
+            new_points = max(
+                0,
+                current_points - 1
+            )
+
+            await db.execute(
+                """
+                UPDATE teams
+                SET points = ?
+                WHERE name = ?
+                """,
+                (
+                    new_points,
+                    loser_team
+                )
+            )
+
+        await db.execute(
+            """
+            UPDATE matches
+            SET status='approved'
+            WHERE id = ?
+            """,
+            (match_id,)
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"✅ Match #{match_id} validé."
+    )
+# ==================================
+# REJECT RESULT
+# ==================================
+
+@bot.tree.command(
+    name="reject_result",
+    description="Refuser un résultat"
+)
+async def reject_result(
+    interaction: discord.Interaction,
+    match_id: int
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute(
+            """
+            UPDATE matches
+            SET status='rejected'
+            WHERE id = ?
+            """,
+            (match_id,)
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"❌ Match #{match_id} refusé."
+    ) 
+    
 bot.run(TOKEN)
 
