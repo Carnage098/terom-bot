@@ -693,6 +693,92 @@ async def match_history(
         )
 
     await interaction.response.send_message(msg)
+# ==================================
+# END TOURNAMENT
+# ==================================
+
+@bot.tree.command(
+    name="end_tournament",
+    description="Terminer le tournoi"
+)
+async def end_tournament(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                name,
+                points
+            FROM teams
+            ORDER BY points DESC
+            """
+        )
+
+        teams = await cursor.fetchall()
+
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*)
+            FROM players
+            """
+        )
+
+        players_count = await cursor.fetchone()
+
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*)
+            FROM matches
+            WHERE status='approved'
+            """
+        )
+
+        matches_count = await cursor.fetchone()
+
+    msg = "🏆 TOURNOI TERMINÉ\n\n"
+
+    msg += "📊 Classement final\n\n"
+
+    medals = ["🥇", "🥈", "🥉"]
+
+    for i, team in enumerate(teams):
+
+        medal = ""
+
+        if i < 3:
+            medal = medals[i]
+
+        msg += (
+            f"{medal} "
+            f"{team[0]} - "
+            f"{team[1]} pts\n"
+        )
+
+    msg += "\n"
+
+    msg += (
+        f"👥 Joueurs inscrits : "
+        f"{players_count[0]}\n"
+    )
+
+    msg += (
+        f"🎮 Matchs validés : "
+        f"{matches_count[0]}\n"
+    )
+
+    await interaction.response.send_message(msg)
 
 bot.run(TOKEN)
 
