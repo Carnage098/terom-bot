@@ -297,4 +297,4 @@ async def leaderboard(
 
     await interaction.response.send_message(msg)
  
-    bot.run(TOKEN)
+bot.run(TOKEN)
