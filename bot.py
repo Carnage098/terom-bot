@@ -779,6 +779,100 @@ async def end_tournament(
     )
 
     await interaction.response.send_message(msg)
+# ==================================
+# DECK STATS
+# ==================================
+
+@bot.tree.command(
+    name="deck_stats",
+    description="Afficher les decks les plus joués"
+)
+async def deck_stats(
+    interaction: discord.Interaction
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT player_deck
+            FROM matches
+            WHERE status='approved'
+            """
+        )
+
+        player_decks = await cursor.fetchall()
+
+        cursor = await db.execute(
+            """
+            SELECT opponent_deck
+            FROM matches
+            WHERE status='approved'
+            """
+        )
+
+        opponent_decks = await cursor.fetchall()
+
+    deck_count = {}
+
+    total = 0
+
+    for deck in player_decks:
+
+        deck_name = deck[0]
+
+        if not deck_name:
+            deck_name = "Autres"
+
+        deck_count[deck_name] = (
+            deck_count.get(deck_name, 0) + 1
+        )
+
+        total += 1
+
+    for deck in opponent_decks:
+
+        deck_name = deck[0]
+
+        if not deck_name:
+            deck_name = "Autres"
+
+        deck_count[deck_name] = (
+            deck_count.get(deck_name, 0) + 1
+        )
+
+        total += 1
+
+    if total == 0:
+
+        await interaction.response.send_message(
+            "❌ Aucune donnée disponible."
+        )
+
+        return
+
+    sorted_decks = sorted(
+        deck_count.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    msg = "📊 Decks les plus joués\n\n"
+
+    for deck, count in sorted_decks:
+
+        percentage = round(
+            (count / total) * 100,
+            1
+        )
+
+        msg += (
+            f"{deck} : "
+            f"{percentage}% "
+            f"({count})\n"
+        )
+
+    await interaction.response.send_message(msg)
 
 bot.run(TOKEN)
 
