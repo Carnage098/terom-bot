@@ -186,6 +186,125 @@ async def remove_points(interaction: discord.Interaction, team: str, points: int
         await db.commit()
 
     await interaction.response.send_message(f"➖ {points} point(s) retiré(s) à {team}")
+# ==================================
+# REPORT RESULT
+# ==================================
+
+@bot.tree.command(
+    name="report_result",
+    description="Déclarer un résultat de match"
+)
+@app_commands.describe(
+    opponent="Adversaire",
+    score="2-0, 2-1, 1-2 ou 0-2",
+    my_deck="Ton deck",
+    opponent_deck="Deck adverse"
+)
+async def report_result(
+    interaction: discord.Interaction,
+    opponent: discord.Member,
+    score: str,
+    my_deck: str,
+    opponent_deck: str = "Inconnu"
+):
+
+    valid_scores = ["2-0", "2-1", "1-2", "0-2"]
+
+    if score not in valid_scores:
+
+        await interaction.response.send_message(
+            "❌ Score invalide. Utilise 2-0, 2-1, 1-2 ou 0-2.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT username, team_name
+            FROM players
+            WHERE discord_id = ?
+            """,
+            (str(interaction.user.id),)
+        )
+
+        player_data = await cursor.fetchone()
+
+        cursor = await db.execute(
+            """
+            SELECT username, team_name
+            FROM players
+            WHERE discord_id = ?
+            """,
+            (str(opponent.id),)
+        )
+
+        opponent_data = await cursor.fetchone()
+
+        if not player_data:
+
+            await interaction.response.send_message(
+                "❌ Tu n'es pas inscrit.",
+                ephemeral=True
+            )
+
+            return
+
+        if not opponent_data:
+
+            await interaction.response.send_message(
+                "❌ Cet adversaire n'est pas inscrit.",
+                ephemeral=True
+            )
+
+            return
+
+        if player_data[1] == opponent_data[1]:
+
+            await interaction.response.send_message(
+                "❌ Impossible d'affronter quelqu'un de sa propre équipe.",
+                ephemeral=True
+            )
+
+            return
+
+        await db.execute(
+            """
+            INSERT INTO matches(
+                player_id,
+                player_name,
+                opponent_id,
+                opponent_name,
+                player_team,
+                opponent_team,
+                score,
+                player_deck,
+                opponent_deck,
+                status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(interaction.user.id),
+                player_data[0],
+                str(opponent.id),
+                opponent_data[0],
+                player_data[1],
+                opponent_data[1],
+                score,
+                my_deck,
+                opponent_deck,
+                "pending"
+            )
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        "✅ Résultat enregistré et envoyé en validation."
+    )
 
 bot.run(TOKEN)
 
