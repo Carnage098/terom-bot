@@ -530,6 +530,169 @@ async def reject_result(
     await interaction.response.send_message(
         f"❌ Match #{match_id} refusé."
     ) 
-    
+@bot.tree.command(
+    name="team_info",
+    description="Voir les informations d'une équipe"
+)
+async def team_info(
+    interaction: discord.Interaction,
+    team: str
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT points
+            FROM teams
+            WHERE name = ?
+            """,
+            (team,)
+        )
+
+        team_data = await cursor.fetchone()
+
+        if not team_data:
+
+            await interaction.response.send_message(
+                "❌ Équipe introuvable."
+            )
+
+            return
+
+        cursor = await db.execute(
+            """
+            SELECT username
+            FROM players
+            WHERE team_name = ?
+            """
+            ,
+            (team,)
+        )
+
+        players = await cursor.fetchall()
+
+    msg = (
+        f"🏆 {team}\n\n"
+        f"Points : {team_data[0]}\n\n"
+        f"Membres :\n"
+    )
+
+    if players:
+
+        for player in players:
+
+            msg += f"• {player[0]}\n"
+
+    else:
+
+        msg += "Aucun membre"
+
+    await interaction.response.send_message(msg) 
+@bot.tree.command(
+    name="player_info",
+    description="Voir les informations d'un joueur"
+)
+async def player_info(
+    interaction: discord.Interaction,
+    player: discord.Member
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                username,
+                team_name,
+                deck
+            FROM players
+            WHERE discord_id = ?
+            """,
+            (str(player.id),)
+        )
+
+        data = await cursor.fetchone()
+
+        if not data:
+
+            await interaction.response.send_message(
+                "❌ Joueur non inscrit."
+            )
+
+            return
+
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*)
+            FROM matches
+            WHERE status='approved'
+            AND (
+                player_id = ?
+                OR opponent_id = ?
+            )
+            """,
+            (
+                str(player.id),
+                str(player.id)
+            )
+        )
+
+        matches = await cursor.fetchone()
+
+    msg = (
+        f"👤 {data[0]}\n\n"
+        f"Équipe : {data[1]}\n"
+        f"Matchs joués : {matches[0]}"
+    )
+
+    await interaction.response.send_message(msg) 
+@bot.tree.command(
+    name="match_history",
+    description="Voir les matchs validés"
+)
+async def match_history(
+    interaction: discord.Interaction
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                id,
+                player_name,
+                opponent_name,
+                score
+            FROM matches
+            WHERE status='approved'
+            ORDER BY id DESC
+            LIMIT 20
+            """
+        )
+
+        matches = await cursor.fetchall()
+
+    if not matches:
+
+        await interaction.response.send_message(
+            "❌ Aucun match validé."
+        )
+
+        return
+
+    msg = "📜 Historique des matchs\n\n"
+
+    for match in matches:
+
+        msg += (
+            f"#{match[0]} "
+            f"{match[1]} "
+            f"{match[3]} "
+            f"{match[2]}\n"
+        )
+
+    await interaction.response.send_message(msg)
+
 bot.run(TOKEN)
 
