@@ -1050,13 +1050,21 @@ async def reset_tournament(
 
         await db.execute("DELETE FROM players")
         await db.execute("DELETE FROM matches")
-        await db.execute("DELETE FROM teams")
+
+        await db.execute(
+            """
+            UPDATE teams
+            SET points = 0
+            """
+        )
 
         await db.commit()
 
     await interaction.response.send_message(
-        "⚠️ Tournoi réinitialisé."
-    )
+        "♻️ Tournoi réinitialisé.\n"
+        "Les équipes officielles ont été conservées."
+    ) 
+
 from charts import create_deck_graph
 @bot.tree.command(
     name="deck_graph",
@@ -1156,6 +1164,62 @@ async def export_tournament(
 
     await interaction.response.send_message(
         file=discord.File(filename)
+    )
+# ==================================
+# SETUP OFFICIAL TEAMS
+# ==================================
+
+@bot.tree.command(
+    name="setup_teams",
+    description="Créer toutes les équipes officielles Ulti-Mate"
+)
+async def setup_teams(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    official_teams = [
+        "The Hunter",
+        "Team Spica",
+        "Le Fun",
+        "Aristochats",
+        "Team Star",
+        "Leader",
+        "Topdeck Believers",
+        "Koura",
+        "Majin"
+    ]
+
+    added = 0
+
+    async with aiosqlite.connect("database.db") as db:
+
+        for team in official_teams:
+
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO teams(
+                    name,
+                    points
+                )
+                VALUES (?,0)
+                """,
+                (team,)
+            )
+
+            added += 1
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"🏆 {added} équipes officielles importées."
     )
 
 bot.run(TOKEN)
