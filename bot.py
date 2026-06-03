@@ -306,5 +306,62 @@ async def report_result(
         "✅ Résultat enregistré et envoyé en validation."
     )
 
+# ==================================
+# PENDING RESULTS
+# ==================================
+
+@bot.tree.command(
+    name="pending_results",
+    description="Voir les résultats en attente"
+)
+async def pending_results(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                id,
+                player_name,
+                opponent_name,
+                score
+            FROM matches
+            WHERE status='pending'
+            """
+        )
+
+        rows = await cursor.fetchall()
+
+    if not rows:
+
+        await interaction.response.send_message(
+            "✅ Aucun résultat en attente."
+        )
+
+        return
+
+    msg = "📋 Résultats en attente\n\n"
+
+    for row in rows:
+
+        msg += (
+            f"#{row[0]} | "
+            f"{row[1]} vs {row[2]} "
+            f"({row[3]})\n"
+        )
+
+    await interaction.response.send_message(msg)
+
 bot.run(TOKEN)
 
