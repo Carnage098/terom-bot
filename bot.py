@@ -873,6 +873,190 @@ async def deck_stats(
         )
 
     await interaction.response.send_message(msg)
+# ==================================
+# WINRATE STATS
+# ==================================
+
+@bot.tree.command(
+    name="winrate_stats",
+    description="Afficher les winrates des decks"
+)
+async def winrate_stats(
+    interaction: discord.Interaction
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                score,
+                player_deck,
+                opponent_deck
+            FROM matches
+            WHERE status='approved'
+            """
+        )
+
+        matches = await cursor.fetchall()
+
+    if not matches:
+
+        await interaction.response.send_message(
+            "❌ Aucun match validé."
+        )
+
+        return
+
+    stats = {}
+
+    for score, player_deck, opponent_deck in matches:
+
+        player_deck = player_deck or "Autres"
+        opponent_deck = opponent_deck or "Autres"
+
+        player_wins = int(score.split("-")[0])
+        opponent_wins = int(score.split("-")[1])
+
+        if player_deck not in stats:
+            stats[player_deck] = {"wins": 0, "games": 0}
+
+        if opponent_deck not in stats:
+            stats[opponent_deck] = {"wins": 0, "games": 0}
+
+        stats[player_deck]["games"] += 1
+        stats[opponent_deck]["games"] += 1
+
+        if player_wins > opponent_wins:
+            stats[player_deck]["wins"] += 1
+        else:
+            stats[opponent_deck]["wins"] += 1
+
+    msg = "📈 Winrates des decks\n\n"
+
+    ranking = []
+
+    for deck, data in stats.items():
+
+        winrate = round(
+            (data["wins"] / data["games"]) * 100,
+            1
+        )
+
+        ranking.append(
+            (
+                deck,
+                winrate,
+                data["games"]
+            )
+        )
+
+    ranking.sort(
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    for deck, winrate, games in ranking:
+
+        msg += (
+            f"{deck} : "
+            f"{winrate}% "
+            f"({games} matchs)\n"
+        )
+
+    await interaction.response.send_message(msg)
+# ==================================
+# STAFF PANEL
+# ==================================
+
+@bot.tree.command(
+    name="staff_panel",
+    description="Informations administratives"
+)
+async def staff_panel(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM players"
+        )
+        players = (await cursor.fetchone())[0]
+
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM teams"
+        )
+        teams = (await cursor.fetchone())[0]
+
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*)
+            FROM matches
+            WHERE status='approved'
+            """
+        )
+        approved = (await cursor.fetchone())[0]
+
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*)
+            FROM matches
+            WHERE status='pending'
+            """
+        )
+        pending = (await cursor.fetchone())[0]
+
+    msg = (
+        "📋 Staff Panel\n\n"
+        f"👥 Joueurs : {players}\n"
+        f"🏆 Équipes : {teams}\n"
+        f"✅ Matchs validés : {approved}\n"
+        f"⏳ Matchs en attente : {pending}"
+    )
+
+    await interaction.response.send_message(msg)
+# ==================================
+# RESET TOURNAMENT
+# ==================================
+
+@bot.tree.command(
+    name="reset_tournament",
+    description="Réinitialiser le tournoi"
+)
+async def reset_tournament(
+    interaction: discord.Interaction
+):
+
+    if not interaction.user.guild_permissions.administrator:
+
+        await interaction.response.send_message(
+            "❌ Réservé aux administrateurs.",
+            ephemeral=True
+        )
+
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute("DELETE FROM players")
+        await db.execute("DELETE FROM matches")
+        await db.execute("DELETE FROM teams")
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        "⚠️ Tournoi réinitialisé."
+    )
 
 bot.run(TOKEN)
 
