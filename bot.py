@@ -1,4 +1,3 @@
-print("BOT START")
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -297,6 +296,5 @@ async def leaderboard(
         )
 
     await interaction.response.send_message(msg)
-   print("AVANT BOT.RUN")
-print("TOKEN =", TOKEN is not None)
+ 
     bot.run(TOKEN)
