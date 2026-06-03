@@ -6,9 +6,9 @@ import os
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# -----------------------------
-# BOT CONFIG
-# -----------------------------
+# ==================================
+# CONFIGURATION DU BOT
+# ==================================
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -18,9 +18,9 @@ bot = commands.Bot(
     intents=intents
 )
 
-# -----------------------------
-# DATABASE
-# -----------------------------
+# ==================================
+# BASE DE DONNÉES
+# ==================================
 
 async def init_db():
 
@@ -38,15 +38,15 @@ async def init_db():
         CREATE TABLE IF NOT EXISTS players(
             discord_id TEXT PRIMARY KEY,
             username TEXT NOT NULL,
-            deck TEXT NOT NULL
+            deck TEXT
         )
         """)
 
         await db.commit()
 
-# -----------------------------
-# EVENTS
-# -----------------------------
+# ==================================
+# BOT READY
+# ==================================
 
 @bot.event
 async def on_ready():
@@ -61,9 +61,9 @@ async def on_ready():
 
     print(f"Connecté en tant que {bot.user}")
 
-# -----------------------------
-# CREATE TOURNAMENT
-# -----------------------------
+# ==================================
+# CRÉER UN TOURNOI
+# ==================================
 
 @bot.tree.command(
     name="create_tournament",
@@ -78,10 +78,12 @@ async def create_tournament(
 ):
 
     if not interaction.user.guild_permissions.manage_guild:
+
         await interaction.response.send_message(
-            "❌ Permission refusée.",
+            "❌ Tu n'as pas la permission.",
             ephemeral=True
         )
+
         return
 
     async with aiosqlite.connect("database.db") as db:
@@ -104,52 +106,52 @@ async def create_tournament(
         f"🏆 Tournoi créé : **{name}**"
     )
 
-# -----------------------------
-# CURRENT TOURNAMENT
-# -----------------------------
+# ==================================
+# TOURNOI ACTIF
+# ==================================
 
 @bot.tree.command(
     name="tournament",
-    description="Afficher le tournoi actif"
+    description="Voir le tournoi actif"
 )
 async def tournament(interaction: discord.Interaction):
 
     async with aiosqlite.connect("database.db") as db:
 
-        cursor = await db.execute(
-            """
-            SELECT id, name
-            FROM tournaments
-            WHERE active = 1
-            """
-        )
+        cursor = await db.execute("""
+        SELECT id, name
+        FROM tournaments
+        WHERE active = 1
+        """)
 
-        tournament = await cursor.fetchone()
+        tournoi = await cursor.fetchone()
 
-    if not tournament:
+    if not tournoi:
+
         await interaction.response.send_message(
             "❌ Aucun tournoi actif."
         )
+
         return
 
     await interaction.response.send_message(
-        f"🏆 Tournoi actif : **{tournament[1]}** (ID {tournament[0]})"
+        f"🏆 Tournoi actif : **{tournoi[1]}** (ID {tournoi[0]})"
     )
 
-# -----------------------------
-# REGISTER
-# -----------------------------
+# ==================================
+# INSCRIPTION
+# ==================================
 
 @bot.tree.command(
     name="register",
     description="S'inscrire au tournoi"
 )
 @app_commands.describe(
-    deck="Nom du deck joué"
+    deck="Deck joué (facultatif)"
 )
 async def register(
     interaction: discord.Interaction,
-    deck: str
+    deck: str = None
 ):
 
     async with aiosqlite.connect("database.db") as db:
@@ -168,8 +170,7 @@ async def register(
         if existing:
 
             await interaction.response.send_message(
-                "❌ Tu es déjà inscrit.",
-                ephemeral=True
+                "❌ Tu es déjà inscrit."
             )
 
             return
@@ -192,13 +193,57 @@ async def register(
 
         await db.commit()
 
+    if deck:
+
+        await interaction.response.send_message(
+            f"✅ {interaction.user.mention} inscrit avec le deck **{deck}**"
+        )
+
+    else:
+
+        await interaction.response.send_message(
+            f"✅ {interaction.user.mention} inscrit."
+        )
+
+# ==================================
+# MODIFIER SON DECK
+# ==================================
+
+@bot.tree.command(
+    name="set_deck",
+    description="Modifier son deck"
+)
+@app_commands.describe(
+    deck="Nom du deck"
+)
+async def set_deck(
+    interaction: discord.Interaction,
+    deck: str
+):
+
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute(
+            """
+            UPDATE players
+            SET deck = ?
+            WHERE discord_id = ?
+            """,
+            (
+                deck,
+                str(interaction.user.id)
+            )
+        )
+
+        await db.commit()
+
     await interaction.response.send_message(
-        f"✅ {interaction.user.mention} inscrit avec **{deck}**"
+        f"🃏 Deck mis à jour : **{deck}**"
     )
 
-# -----------------------------
-# UNREGISTER
-# -----------------------------
+# ==================================
+# DÉSINSCRIPTION
+# ==================================
 
 @bot.tree.command(
     name="unregister",
@@ -224,17 +269,15 @@ async def unregister(
         "🗑️ Désinscription effectuée."
     )
 
-# -----------------------------
-# PLAYERS
-# -----------------------------
+# ==================================
+# LISTE DES JOUEURS
+# ==================================
 
 @bot.tree.command(
     name="players",
-    description="Afficher les participants"
+    description="Voir les participants"
 )
-async def players(
-    interaction: discord.Interaction
-):
+async def players(interaction: discord.Interaction):
 
     async with aiosqlite.connect("database.db") as db:
 
@@ -246,9 +289,9 @@ async def players(
             """
         )
 
-        players = await cursor.fetchall()
+        joueurs = await cursor.fetchall()
 
-    if not players:
+    if not joueurs:
 
         await interaction.response.send_message(
             "❌ Aucun joueur inscrit."
@@ -258,39 +301,38 @@ async def players(
 
     message = ""
 
-    for username, deck in players:
+    for username, deck in joueurs:
 
-        message += f"• {username} ({deck})\n"
+        if deck:
+            message += f"• {username} ({deck})\n"
+        else:
+            message += f"• {username}\n"
 
     await interaction.response.send_message(
         f"📋 Participants\n\n{message}"
     )
 
-# -----------------------------
-# STANDINGS
-# -----------------------------
+# ==================================
+# CLASSEMENT
+# ==================================
 
 @bot.tree.command(
     name="standings",
     description="Afficher le classement"
 )
-async def standings(
-    interaction: discord.Interaction
-):
+async def standings(interaction: discord.Interaction):
 
     async with aiosqlite.connect("database.db") as db:
 
-        cursor = await db.execute(
-            """
-            SELECT username
-            FROM players
-            ORDER BY username
-            """
-        )
+        cursor = await db.execute("""
+        SELECT username
+        FROM players
+        ORDER BY username
+        """)
 
-        players = await cursor.fetchall()
+        joueurs = await cursor.fetchall()
 
-    if not players:
+    if not joueurs:
 
         await interaction.response.send_message(
             "❌ Aucun joueur."
@@ -300,16 +342,16 @@ async def standings(
 
     classement = "🏆 Classement\n\n"
 
-    for index, player in enumerate(players, start=1):
+    for index, joueur in enumerate(joueurs, start=1):
 
-        classement += f"{index}. {player[0]}\n"
+        classement += f"{index}. {joueur[0]}\n"
 
     await interaction.response.send_message(
         classement
     )
 
-# -----------------------------
-# RUN
-# -----------------------------
+# ==================================
+# LANCEMENT
+# ==================================
 
 bot.run(TOKEN)
