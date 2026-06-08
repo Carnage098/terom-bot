@@ -12,12 +12,23 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents
+)
+
+@bot.event
 async def on_ready():
+
     await init_db()
+
     synced = await bot.tree.sync()
+
+    print("✅ Base de données initialisée")
     print(f"{len(synced)} commandes synchronisées")
     print(f"Connecté en tant que {bot.user}")
+    
 
 @bot.tree.command(name="register", description="S'inscrire au tournoi")
 async def register(interaction: discord.Interaction, deck: str = None):
@@ -1319,16 +1330,6 @@ async def sync_teams(
         f"👤 Joueurs ajoutés : {added}\n"
         f"🔄 Joueurs mis à jour : {updated}"
     )
-print("SYNC START")
 
-    async with aiosqlite.connect("database.db") as db:
-
-    cursor = await db.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    )
-
-    tables = await cursor.fetchall()
-
-    print("TABLES =", tables)
 bot.run(TOKEN)
 
