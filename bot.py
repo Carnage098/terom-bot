@@ -11,10 +11,9 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.message = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+intents.members = True
 
-@bot.event
+bot.event
 async def on_ready():
     await init_db()
     synced = await bot.tree.sync()
