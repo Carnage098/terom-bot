@@ -11,7 +11,7 @@ async def init_db():
         # -------------------
 
         await db.execute("""
-        CREATE TABLE IF NOT EXISTS tournaments(
+        CREATE TABLE IF NOT EXISTS tournaments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             active INTEGER DEFAULT 1
@@ -19,11 +19,11 @@ async def init_db():
         """)
 
         # -------------------
-        # TEAMS
+        # ÉQUIPES
         # -------------------
 
         await db.execute("""
-        CREATE TABLE IF NOT EXISTS teams(
+        CREATE TABLE IF NOT EXISTS teams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
             points INTEGER DEFAULT 0
@@ -35,7 +35,7 @@ async def init_db():
         # -------------------
 
         await db.execute("""
-        CREATE TABLE IF NOT EXISTS players(
+        CREATE TABLE IF NOT EXISTS players (
             discord_id TEXT PRIMARY KEY,
             username TEXT,
             deck TEXT,
@@ -48,8 +48,9 @@ async def init_db():
         # -------------------
 
         await db.execute("""
-        CREATE TABLE IF NOT EXISTS matches(
+        CREATE TABLE IF NOT EXISTS matches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+
             player_id TEXT,
             player_name TEXT,
 
@@ -70,20 +71,4 @@ async def init_db():
 
         await db.commit()
 
-async def init_db():
-    async with aiosqlite.connect("database.db") as db:
-
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS teams (
-            name TEXT PRIMARY KEY,
-            points INTEGER DEFAULT 0
-        )
-        """)
-
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS players (
-            ...
-        )
-        """)
-
-        await db.commit()
+        print("✅ Base de données initialisée")
