@@ -1268,7 +1268,7 @@ async def sync_teams(
         )
         return
 
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
 
     added = 0
     updated = 0
