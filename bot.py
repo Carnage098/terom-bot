@@ -49,7 +49,7 @@ async def register(interaction: discord.Interaction, deck: str = None):
 
     await interaction.response.send_message("✅ Inscription réussie.")
 
-@bot.tree.command(name="unregister", description="Se désinscrire",ephemeral=True)
+@bot.tree.command(name="unregister", description="Se désinscrire")
 async def unregister(interaction: discord.Interaction):
     async with aiosqlite.connect("database.db") as db:
         await db.execute(
