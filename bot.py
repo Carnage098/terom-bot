@@ -1321,7 +1321,7 @@ async def sync_teams(
     )
 print("SYNC START")
 
-async with aiosqlite.connect("database.db") as db:
+    async with aiosqlite.connect("database.db") as db:
 
     cursor = await db.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
