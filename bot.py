@@ -1225,6 +1225,12 @@ async def setup_teams(
 )
 async def sync_teams(interaction: discord.Interaction):
 
+    await interaction.response.send_message(
+        "Début de la synchronisation..."
+    )
+
+    print("SYNC LANCE")
+
     await interaction.response.defer()
 
     if not is_staff(interaction.user):
