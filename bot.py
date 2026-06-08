@@ -49,7 +49,7 @@ async def register(interaction: discord.Interaction, deck: str = None):
 
     await interaction.response.send_message("✅ Inscription réussie.")
 
-@bot.tree.command(name="unregister", description="Se désinscrire")
+@bot.tree.command(name="unregister", description="Se désinscrire",ephemeral=True)
 async def unregister(interaction: discord.Interaction):
     async with aiosqlite.connect("database.db") as db:
         await db.execute(
@@ -73,7 +73,9 @@ async def create_team(interaction: discord.Interaction, name: str):
         )
         await db.commit()
 
-    await interaction.response.send_message(f"🏆 Équipe créée : {name}")
+    await interaction.response.send_message(f"🏆 Équipe créée : {name}",
+    ephemeral=True
+    )
 
 @bot.tree.command(name="delete_team", description="Supprimer une équipe")
 async def delete_team(interaction: discord.Interaction, name: str):
@@ -94,7 +96,9 @@ async def teams(interaction: discord.Interaction):
         rows = await cur.fetchall()
 
     if not rows:
-        await interaction.response.send_message("❌ Aucune équipe.")
+        await interaction.response.send_message("❌ Aucune équipe.",
+        ephemeral=True
+        )
         return
 
     msg = "🏆 Équipes\n\n"
@@ -128,7 +132,9 @@ async def add_player(interaction: discord.Interaction, player: discord.Member):
         )
         await db.commit()
 
-    await interaction.response.send_message(f"✅ {player.mention} ajouté.")
+    await interaction.response.send_message(f"✅ {player.mention} ajouté.",
+    ephemeral=True
+    )
 
 @bot.tree.command(name="remove_player", description="Retirer un joueur")
 async def remove_player(interaction: discord.Interaction, player: discord.Member):
@@ -140,7 +146,9 @@ async def remove_player(interaction: discord.Interaction, player: discord.Member
         await db.execute("DELETE FROM players WHERE discord_id=?", (str(player.id),))
         await db.commit()
 
-    await interaction.response.send_message(f"🗑️ {player.mention} retiré.")
+    await interaction.response.send_message(f"🗑️ {player.mention} retiré.",
+    ephemeral=True
+    )
 
 @bot.tree.command(name="assign_team", description="Attribuer une équipe")
 async def assign_team(interaction: discord.Interaction, player: discord.Member, team: str):
@@ -194,7 +202,8 @@ async def remove_points(interaction: discord.Interaction, team: str, points: int
         )
         await db.commit()
 
-    await interaction.response.send_message(f"➖ {points} point(s) retiré(s) à {team}")
+    await interaction.response.send_message(f"➖ {points} point(s) retiré(s) à {team}", 
+    ephemeral=True)
 # ==================================
 # REPORT RESULT
 # ==================================
@@ -312,7 +321,8 @@ async def report_result(
         await db.commit()
 
     await interaction.response.send_message(
-        "✅ Résultat enregistré et envoyé en validation."
+        "✅ Résultat enregistré et envoyé en validation.",
+        ephemeral=True
     )
 
 # ==================================
@@ -355,7 +365,8 @@ async def pending_results(
     if not rows:
 
         await interaction.response.send_message(
-            "✅ Aucun résultat en attente."
+            "✅ Aucun résultat en attente.",
+            ephemeral=True
         )
 
         return
@@ -414,7 +425,8 @@ async def approve_result(
         if not match:
 
             await interaction.response.send_message(
-                "❌ Match introuvable."
+                "❌ Match introuvable.", 
+                ephemeral=True
             )
 
             return
@@ -422,7 +434,8 @@ async def approve_result(
         if match[4] != "pending":
 
             await interaction.response.send_message(
-                "❌ Match déjà traité."
+                "❌ Match déjà traité.",
+                ephemeral=True
             )
 
             return
@@ -499,7 +512,8 @@ async def approve_result(
         await db.commit()
 
     await interaction.response.send_message(
-        f"✅ Match #{match_id} validé."
+        f"✅ Match #{match_id} validé.", 
+        ephemeral=True
     )
 # ==================================
 # REJECT RESULT
@@ -537,7 +551,8 @@ async def reject_result(
         await db.commit()
 
     await interaction.response.send_message(
-        f"❌ Match #{match_id} refusé."
+        f"❌ Match #{match_id} refusé.", 
+        ephemeral=True
     ) 
 @bot.tree.command(
     name="team_info",
@@ -564,7 +579,8 @@ async def team_info(
         if not team_data:
 
             await interaction.response.send_message(
-                "❌ Équipe introuvable."
+                "❌ Équipe introuvable.", 
+                ephemeral=True
             )
 
             return
@@ -626,7 +642,8 @@ async def player_info(
         if not data:
 
             await interaction.response.send_message(
-                "❌ Joueur non inscrit."
+                "❌ Joueur non inscrit.", 
+                ephemeral=True
             )
 
             return
@@ -652,8 +669,9 @@ async def player_info(
     msg = (
         f"👤 {data[0]}\n\n"
         f"Équipe : {data[1]}\n"
-        f"Matchs joués : {matches[0]}"
-    )
+        f"Matchs joués : {matches[0]}",
+        ephemeral=True
+        )
 
     await interaction.response.send_message(msg) 
 @bot.tree.command(
@@ -685,7 +703,8 @@ async def match_history(
     if not matches:
 
         await interaction.response.send_message(
-            "❌ Aucun match validé."
+            "❌ Aucun match validé.", 
+            ephemeral=True
         )
 
         return
@@ -698,7 +717,8 @@ async def match_history(
             f"#{match[0]} "
             f"{match[1]} "
             f"{match[3]} "
-            f"{match[2]}\n"
+            f"{match[2]}\n",
+            ephemeral=True
         )
 
     await interaction.response.send_message(msg)
@@ -855,7 +875,8 @@ async def deck_stats(
     if total == 0:
 
         await interaction.response.send_message(
-            "❌ Aucune donnée disponible."
+            "❌ Aucune donnée disponible.",
+            ephemeral=True
         )
 
         return
@@ -912,7 +933,8 @@ async def winrate_stats(
     if not matches:
 
         await interaction.response.send_message(
-            "❌ Aucun match validé."
+            "❌ Aucun match validé.",
+            ephemeral=True
         )
 
         return
@@ -1108,7 +1130,8 @@ async def deck_graph(
     if not counts:
 
         await interaction.response.send_message(
-            "❌ Aucune donnée."
+            "❌ Aucune donnée.",
+            ephemeral=True
         )
 
         return
@@ -1228,7 +1251,8 @@ async def setup_teams(
         await db.commit()
 
     await interaction.response.send_message(
-        f"🏆 {added} équipes officielles importées."
+        f"🏆 {added} équipes officielles importées.",
+        ephemeral=True
     )
 @bot.tree.command(
     name="sync_teams",
@@ -1328,7 +1352,8 @@ async def sync_teams(
         f"✅ Synchronisation terminée\n\n"
         f"🏆 Rôles trouvés : {roles_found}\n"
         f"👤 Joueurs ajoutés : {added}\n"
-        f"🔄 Joueurs mis à jour : {updated}"
+        f"🔄 Joueurs mis à jour : {updated}",
+        ephemeral=True
     )
 
 bot.run(TOKEN)
