@@ -1233,7 +1233,7 @@ async def sync_teams(interaction: discord.Interaction):
             ephemeral=True
         )
         return
-await interaction.followup.send(
+        await interaction.followup.send(
     f"✅ Synchronisation terminée.\n"
     f"👤 Joueurs ajoutés : {added}\n"
     f"🔄 Joueurs mis à jour : {updated}"
