@@ -716,8 +716,7 @@ async def match_history(
             f"#{match[0]} "
             f"{match[1]} "
             f"{match[3]} "
-            f"{match[2]}\n",
-            ephemeral=True
+            f"{match[2]}\n"
         )
 
     await interaction.response.send_message(msg)
