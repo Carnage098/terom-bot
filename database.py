@@ -69,3 +69,21 @@ async def init_db():
         """)
 
         await db.commit()
+
+async def init_db():
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS teams (
+            name TEXT PRIMARY KEY,
+            points INTEGER DEFAULT 0
+        )
+        """)
+
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS players (
+            ...
+        )
+        """)
+
+        await db.commit()
