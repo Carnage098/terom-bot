@@ -1319,5 +1319,16 @@ async def sync_teams(
         f"👤 Joueurs ajoutés : {added}\n"
         f"🔄 Joueurs mis à jour : {updated}"
     )
+print("SYNC START")
+
+async with aiosqlite.connect("database.db") as db:
+
+    cursor = await db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    )
+
+    tables = await cursor.fetchall()
+
+    print("TABLES =", tables)
 bot.run(TOKEN)
 
