@@ -1221,6 +1221,98 @@ async def setup_teams(
     await interaction.response.send_message(
         f"🏆 {added} équipes officielles importées."
     )
+@bot.tree.command(
+    name="sync_teams",
+    description="Synchronise les rôles Discord avec les équipes"
+)
+async def sync_teams(
+    interaction: discord.Interaction
+):
 
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    added = 0
+    updated = 0
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            "SELECT name FROM teams"
+        )
+        teams = await cursor.fetchall()
+
+        for (team_name,) in teams:
+
+            role = discord.utils.get(
+                interaction.guild.roles,
+                name=team_name
+            )
+
+            if not role:
+                continue
+
+            for member in role.members:
+
+                cursor = await db.execute(
+                    """
+                    SELECT discord_id
+                    FROM players
+                    WHERE discord_id = ?
+                    """,
+                    (str(member.id),)
+                )
+
+                exists = await cursor.fetchone()
+
+                if not exists:
+
+                    await db.execute(
+                        """
+                        INSERT INTO players(
+                            discord_id,
+                            username,
+                            deck,
+                            team_name
+                        )
+                        VALUES(?,?,NULL,?)
+                        """,
+                        (
+                            str(member.id),
+                            member.name,
+                            team_name
+                        )
+                    )
+
+                    added += 1
+
+                else:
+
+                    await db.execute(
+                        """
+                        UPDATE players
+                        SET team_name = ?
+                        WHERE discord_id = ?
+                        """,
+                        (
+                            team_name,
+                            str(member.id)
+                        )
+                    )
+
+                    updated += 1
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"✅ Synchronisation terminée.\n"
+        f"👤 Joueurs ajoutés : {added}\n"
+        f"🔄 Joueurs mis à jour : {updated}"
+    )
 bot.run(TOKEN)
 
