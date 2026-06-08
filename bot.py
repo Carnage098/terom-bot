@@ -669,8 +669,7 @@ async def player_info(
     msg = (
         f"👤 {data[0]}\n\n"
         f"Équipe : {data[1]}\n"
-        f"Matchs joués : {matches[0]}",
-        ephemeral=True
+        f"Matchs joués : {matches[0]}"
         )
 
     await interaction.response.send_message(msg) 
