@@ -1223,7 +1223,7 @@ async def setup_teams(
         "Team Star",
         "Leader",
         "Topdeck Believers",
-        "Koura",
+        "Les Kouras",
         "Majin"
     ]
 
