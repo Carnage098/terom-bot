@@ -1252,16 +1252,22 @@ async def setup_teams(
         f"🏆 {added} équipes officielles importées.",
         ephemeral=True
     )
+
 @bot.tree.command(
-    name="sync_teams",
-    description="Synchronise les rôles Discord avec les équipes"
+    name="sync_team",
+    description="Synchronise un rôle Discord avec une équipe"
 )
-async def sync_teams(
-    interaction: discord.Interaction
+@app_commands.describe(
+    role="Rôle Discord à synchroniser",
+    equipe="Nom de l'équipe configurée"
+)
+async def sync_team(
+    interaction: discord.Interaction,
+    role: discord.Role,
+    equipe: str
 ):
 
     if not is_staff(interaction.user):
-
         await interaction.response.send_message(
             "❌ Permission refusée.",
             ephemeral=True
@@ -1270,89 +1276,88 @@ async def sync_teams(
 
     await interaction.response.defer(ephemeral=True)
 
-    added = 0
-    updated = 0
-    roles_found = 0
-
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT name FROM teams"
+            """
+            SELECT name
+            FROM teams
+            WHERE name = ?
+            """,
+            (equipe,)
         )
-        teams = await cursor.fetchall()
 
-        for (team_name,) in teams:
+        team_exists = await cursor.fetchone()
 
-            role = discord.utils.get(
-                interaction.guild.roles,
-                name=team_name
+        if not team_exists:
+            await interaction.followup.send(
+                f"❌ L'équipe **{equipe}** n'existe pas.",
+                ephemeral=True
+            )
+            return
+
+        added = 0
+        updated = 0
+
+        for member in role.members:
+
+            cursor = await db.execute(
+                """
+                SELECT discord_id
+                FROM players
+                WHERE discord_id = ?
+                """,
+                (str(member.id),)
             )
 
-            if role is None:
-                print(f"Rôle introuvable : {team_name}")
-                continue
+            player = await cursor.fetchone()
 
-            roles_found += 1
+            if player:
 
-            for member in role.members:
-
-                cursor = await db.execute(
+                await db.execute(
                     """
-                    SELECT discord_id
-                    FROM players
+                    UPDATE players
+                    SET team_name = ?
                     WHERE discord_id = ?
                     """,
-                    (str(member.id),)
+                    (
+                        equipe,
+                        str(member.id)
+                    )
                 )
 
-                exists = await cursor.fetchone()
+                updated += 1
 
-                if exists:
+            else:
 
-                    await db.execute(
-                        """
-                        UPDATE players
-                        SET team_name = ?
-                        WHERE discord_id = ?
-                        """,
-                        (
-                            team_name,
-                            str(member.id)
-                        )
+                await db.execute(
+                    """
+                    INSERT INTO players(
+                        discord_id,
+                        username,
+                        deck,
+                        team_name
                     )
-
-                    updated += 1
-
-                else:
-
-                    await db.execute(
-                        """
-                        INSERT INTO players(
-                            discord_id,
-                            username,
-                            deck,
-                            team_name
-                        )
-                        VALUES (?, ?, NULL, ?)
-                        """,
-                        (
-                            str(member.id),
-                            member.name,
-                            team_name
-                        )
+                    VALUES (?, ?, NULL, ?)
+                    """,
+                    (
+                        str(member.id),
+                        member.display_name,
+                        equipe
                     )
+                )
 
-                    added += 1
+                added += 1
 
         await db.commit()
 
     await interaction.followup.send(
         f"✅ Synchronisation terminée\n\n"
-        f"🏆 Rôles trouvés : {roles_found}\n"
+        f"🏆 Équipe : {equipe}\n"
+        f"🎭 Rôle : {role.name}\n"
         f"👤 Joueurs ajoutés : {added}\n"
         f"🔄 Joueurs mis à jour : {updated}",
         ephemeral=True
     )
-
 bot.run(TOKEN)
 
