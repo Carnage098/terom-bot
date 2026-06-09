@@ -1234,15 +1234,18 @@ async def setup_teams(
         for team in official_teams:
 
             await db.execute(
-                """
-                INSERT OR IGNORE INTO teams(
-                    name,
-                    points
-                )
-                VALUES (?,0)
-                """,
-                (team,)
-            )
+    """
+    INSERT OR IGNORE INTO teams(
+        name,
+        captain,
+        wins,
+        losses,
+        points
+    )
+    VALUES (?, '', 0, 0, 0)
+    """,
+    (team,)
+)
 
             added += 1
 
@@ -1344,19 +1347,7 @@ async def sync_teams(
                             team_name
                         )
                     )
-                    await db.execute(
-    """
-    INSERT OR IGNORE INTO teams(
-        name,
-        captain,
-        wins,
-        losses,
-        points
-    )
-    VALUES (?, '', 0, 0, 0)
-    """,
-    (team,)
-)
+                
                 
 
                     added += 1
