@@ -1390,21 +1390,44 @@ async def teams_info(
         title="🏆 Classement des équipes",
         color=discord.Color.gold()
     )
-
     for team in teams:
 
-        name, tag, captain, wins, losses, points = team
+    name, tag, captain, wins, losses, points = team
 
-        embed.add_field(
-            name=f"{tag} | {name}",
-            value=(
-                f"👑 Capitaine : {captain}\n"
-                f"🏅 Points : {points}\n"
-                f"✅ Victoires : {wins}\n"
-                f"❌ Défaites : {losses}"
-            ),
-            inline=False
-        )
+    cursor = await db.execute(
+        """
+        SELECT username
+        FROM players
+        WHERE team_name = ?
+        ORDER BY username
+        """,
+        (name,)
+    )
+
+    members = await cursor.fetchall()
+
+    member_list = "\n".join(
+        f"• {member[0]}"
+        for member in members
+    )
+
+    if not member_list:
+        member_list = "Aucun membre"
+
+    embed.add_field(
+        name=f"{tag} | {name}",
+        value=(
+            f"👑 Capitaine : {captain}\n"
+            f"🏅 Points : {points}\n"
+            f"✅ Victoires : {wins}\n"
+            f"❌ Défaites : {losses}\n\n"
+            f"👥 Membres ({len(members)})\n"
+            f"{member_list}"
+        ),
+        inline=False
+    )
+
+
 
     await interaction.response.send_message(
         embed=embed
