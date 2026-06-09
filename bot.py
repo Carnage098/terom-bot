@@ -1344,6 +1344,20 @@ async def sync_teams(
                             team_name
                         )
                     )
+                    await db.execute(
+    """
+    INSERT OR IGNORE INTO teams(
+        name,
+        captain,
+        wins,
+        losses,
+        points
+    )
+    VALUES (?, '', 0, 0, 0)
+    """,
+    (team,)
+)
+                
 
                     added += 1
 
