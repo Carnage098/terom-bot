@@ -1371,68 +1371,69 @@ async def teams_info(
 
     async with aiosqlite.connect("database.db") as db:
 
-        cursor = await db.execute("""
-        SELECT
-            name,
-            tag,
-            captain,
-            wins,
-            losses,
-            points
-        FROM teams
-        ORDER BY points DESC
-        """)
+        cursor = await db.execute(
+            """
+            SELECT
+                name,
+                captain,
+                wins,
+                losses,
+                points
+            FROM teams
+            ORDER BY points DESC
+            """
+        )
 
         teams = await cursor.fetchall()
 
-    if not teams:
-        await interaction.response.send_message(
-            "❌ Aucune équipe trouvée."
+        if not teams:
+
+            await interaction.response.send_message(
+                "❌ Aucune équipe trouvée.",
+                ephemeral=True
+            )
+
+            return
+
+        embed = discord.Embed(
+            title="🏆 Classement des équipes",
+            color=discord.Color.gold()
         )
-        return
 
-    embed = discord.Embed(
-        title="🏆 Classement des équipes",
-        color=discord.Color.gold()
-    )
-    for team in teams:
+        for name, captain, wins, losses, points in teams:
 
-    name, tag, captain, wins, losses, points = team
+            cursor = await db.execute(
+                """
+                SELECT username
+                FROM players
+                WHERE team_name = ?
+                ORDER BY username
+                """,
+                (name,)
+            )
 
-    cursor = await db.execute(
-        """
-        SELECT username
-        FROM players
-        WHERE team_name = ?
-        ORDER BY username
-        """,
-        (name,)
-    )
+            members = await cursor.fetchall()
 
-    members = await cursor.fetchall()
+            member_list = "\n".join(
+                f"• {member[0]}"
+                for member in members
+            )
 
-    member_list = "\n".join(
-        f"• {member[0]}"
-        for member in members
-    )
+            if not member_list:
+                member_list = "Aucun membre"
 
-    if not member_list:
-        member_list = "Aucun membre"
-
-    embed.add_field(
-        name=f"{tag} | {name}",
-        value=(
-            f"👑 Capitaine : {captain}\n"
-            f"🏅 Points : {points}\n"
-            f"✅ Victoires : {wins}\n"
-            f"❌ Défaites : {losses}\n\n"
-            f"👥 Membres ({len(members)})\n"
-            f"{member_list}"
-        ),
-        inline=False
-    )
-
-
+            embed.add_field(
+                name=name,
+                value=(
+                    f"👑 Capitaine : {captain or 'Non défini'}\n"
+                    f"🏅 Points : {points}\n"
+                    f"✅ Victoires : {wins}\n"
+                    f"❌ Défaites : {losses}\n\n"
+                    f"👥 Membres ({len(members)})\n"
+                    f"{member_list}"
+                ),
+                inline=False
+            )
 
     await interaction.response.send_message(
         embed=embed
