@@ -68,6 +68,13 @@ async def init_db():
             status TEXT DEFAULT 'pending'
         )
         """)
+        
+        await db.execute("""
+CREATE TABLE IF NOT EXISTS team_roles (
+    team_name TEXT PRIMARY KEY,
+    role_id TEXT NOT NULL
+)
+""")
 
         await db.commit()
 
