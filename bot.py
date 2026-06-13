@@ -1443,7 +1443,6 @@ async def sync_teams(
     name="teams_info",
     description="Affiche toutes les équipes"
 )
-@app_commands.autocomplete(team=team_autocomplete)
 async def teams_info(
     interaction: discord.Interaction
 ):
