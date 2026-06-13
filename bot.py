@@ -344,22 +344,22 @@ my_deck="Ton deck",
 opponent_deck="Deck adverse"
 )
 async def report_result(
-    interaction: discord.Interaction,
-    opponent: discord.Member,
-    score: str,
-    points: int,
-    my_deck: str,
-    opponent_deck: str = "Inconnu"
+interaction: discord.Interaction,
+opponent: discord.Member,
+score: str,
+points: int,
+my_deck: str,
+opponent_deck: str = "Inconnu"
 ):
 
-    valid_scores = ["2-0", "2-1", "1-2", "0-2"]
-    if score not in valid_scores:
+valid_scores = ["2-0", "2-1", "1-2", "0-2"]
+
+if score not in valid_scores:
     await interaction.response.send_message(
         "❌ Score invalide.",
         ephemeral=True
     )
     return
-    
 
 async with aiosqlite.connect("database.db") as db:
 
@@ -427,7 +427,6 @@ await interaction.response.send_message(
     f"✅ Résultat enregistré.\n📊 Valeur du match : {points} point(s).",
     ephemeral=True
 )
-
 
 # ==================================
 # PENDING RESULTS
