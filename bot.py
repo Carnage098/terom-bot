@@ -634,7 +634,7 @@ async def reject_result(
     name="team_info",
     description="Voir les informations d'une équipe"
 )
-@app_commands.autocomplete(team=team_autocomplete)
+
 async def team_info(
     interaction: discord.Interaction,
     team: str
