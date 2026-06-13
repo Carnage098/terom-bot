@@ -17,7 +17,31 @@ bot = commands.Bot(
     command_prefix="!",
     intents=intents
 )
+async def team_autocomplete(
+    interaction: discord.Interaction,
+    current: str
+):
 
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT name
+            FROM teams
+            ORDER BY name
+            """
+        )
+
+        teams = await cursor.fetchall()
+
+    return [
+        app_commands.Choice(
+            name=team[0],
+            value=team[0]
+        )
+        for team in teams
+        if current.lower() in team[0].lower()
+    ][:25]
 @bot.event
 async def on_ready():
 
