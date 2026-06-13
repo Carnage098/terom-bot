@@ -1660,7 +1660,8 @@ async def set_points(
         await db.commit()
 
     await interaction.response.send_message(
-        f"🏆 {team} possède maintenant {points} point(s)."
+        f"🏆 {team} possède maintenant {points} point(s).",
+        ephemeral=True
     )
 
 bot.run(TOKEN)
