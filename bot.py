@@ -1520,7 +1520,7 @@ async def teams_info(
     name="setup_team_role",
     description="Associe une équipe à un rôle Discord"
 )
-@app_commands.autocomplete(team=team_autocomplete)
+@app_commands.autocomplete(equipe=team_autocomplete)
 @app_commands.describe(
     equipe="Nom de l'équipe",
     role="Rôle Discord correspondant"
