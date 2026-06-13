@@ -280,30 +280,38 @@ async def add_points(
         f"➕ {points} point(s) ajouté(s) à {team}"
     )
 
-@bot.tree.command(name="remove_points", description="Retirer des points")
-@app_commands.autocomplete(team=team_autocomplete)
-cursor = await db.execute(
-    "SELECT 1 FROM teams WHERE name = ?",
-    (team,)
+@bot.tree.command(
+    name="remove_points",
+    description="Retirer des points"
 )
+@app_commands.autocomplete(team=team_autocomplete)
+async def remove_points(
+    interaction: discord.Interaction,
+    team: str,
+    points: int
+):
 
-if not await cursor.fetchone():
-    await interaction.response.send_message(
-        "❌ Cette équipe n'existe pas.",
-        ephemeral=True
-    )
-    return
-async def remove_points(interaction: discord.Interaction, team: str, points: int):
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
         return
 
     async with aiosqlite.connect("database.db") as db:
-        cur = await db.execute("SELECT points FROM teams WHERE name=?", (team,))
-        row = await cur.fetchone()
+
+        cursor = await db.execute(
+            "SELECT points FROM teams WHERE name = ?",
+            (team,)
+        )
+
+        row = await cursor.fetchone()
 
         if not row:
-            await interaction.response.send_message("❌ Équipe introuvable.")
+            await interaction.response.send_message(
+                "❌ Cette équipe n'existe pas.",
+                ephemeral=True
+            )
             return
 
         new_points = max(0, row[0] - points)
@@ -312,10 +320,13 @@ async def remove_points(interaction: discord.Interaction, team: str, points: int
             "UPDATE teams SET points=? WHERE name=?",
             (new_points, team)
         )
+
         await db.commit()
 
-    await interaction.response.send_message(f"➖ {points} point(s) retiré(s) à {team}", 
-    ephemeral=True)
+    await interaction.response.send_message(
+        f"➖ {points} point(s) retiré(s) à {team}",
+        ephemeral=True
+    )
 # ==================================
 # REPORT RESULT
 # ==================================
