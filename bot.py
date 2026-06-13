@@ -86,11 +86,23 @@ async def unregister(interaction: discord.Interaction):
 
 @bot.tree.command(name="create_team", description="Créer une équipe")
 async def create_team(interaction: discord.Interaction, name: str):
+    
     if not is_staff(interaction.user):
         await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
         return
 
     async with aiosqlite.connect("database.db") as db:
+    cursor = await db.execute(
+    "SELECT name FROM teams WHERE name = ?",
+    (name,)
+)
+
+if await cursor.fetchone():
+    await interaction.response.send_message(
+        "❌ Cette équipe existe déjà.",
+        ephemeral=True
+    )
+    return
         await db.execute(
             "INSERT INTO teams(name, points) VALUES(?,0)",
             (name,)
