@@ -96,7 +96,13 @@ async def init_db():
             role_id TEXT NOT NULL
         )
         """)
-
+        try:
+    await db.execute("""
+    ALTER TABLE matches
+    ADD COLUMN points INTEGER DEFAULT 1
+    """)
+except:
+    pass
         await db.commit()
 
     print("✅ Base de données initialisée")
