@@ -102,6 +102,7 @@ async def create_team(interaction: discord.Interaction, name: str):
     )
 
 @bot.tree.command(name="delete_team", description="Supprimer une équipe")
+@app_commands.autocomplete(team=team_autocomplete)
 async def delete_team(interaction: discord.Interaction, name: str):
     if not is_staff(interaction.user):
         await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
@@ -175,6 +176,18 @@ async def remove_player(interaction: discord.Interaction, player: discord.Member
     )
 
 @bot.tree.command(name="assign_team", description="Attribuer une équipe")
+@app_commands.autocomplete(team=team_autocomplete)
+cursor = await db.execute(
+    "SELECT 1 FROM teams WHERE name = ?",
+    (team,)
+)
+
+if not await cursor.fetchone():
+    await interaction.response.send_message(
+        "❌ Cette équipe n'existe pas.",
+        ephemeral=True
+    )
+    return
 async def assign_team(interaction: discord.Interaction, player: discord.Member, team: str):
     if not is_staff(interaction.user):
         await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
@@ -190,6 +203,18 @@ async def assign_team(interaction: discord.Interaction, player: discord.Member, 
     await interaction.response.send_message(f"✅ {player.mention} rejoint {team}")
 
 @bot.tree.command(name="add_points", description="Ajouter des points")
+@app_commands.autocomplete(team=team_autocomplete)
+cursor = await db.execute(
+    "SELECT 1 FROM teams WHERE name = ?",
+    (team,)
+)
+
+if not await cursor.fetchone():
+    await interaction.response.send_message(
+        "❌ Cette équipe n'existe pas.",
+        ephemeral=True
+    )
+    return
 async def add_points(interaction: discord.Interaction, team: str, points: int):
     if not is_staff(interaction.user):
         await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
@@ -205,6 +230,18 @@ async def add_points(interaction: discord.Interaction, team: str, points: int):
     await interaction.response.send_message(f"➕ {points} point(s) ajouté(s) à {team}")
 
 @bot.tree.command(name="remove_points", description="Retirer des points")
+@app_commands.autocomplete(team=team_autocomplete)
+cursor = await db.execute(
+    "SELECT 1 FROM teams WHERE name = ?",
+    (team,)
+)
+
+if not await cursor.fetchone():
+    await interaction.response.send_message(
+        "❌ Cette équipe n'existe pas.",
+        ephemeral=True
+    )
+    return
 async def remove_points(interaction: discord.Interaction, team: str, points: int):
     if not is_staff(interaction.user):
         await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
@@ -582,6 +619,7 @@ async def reject_result(
     name="team_info",
     description="Voir les informations d'une équipe"
 )
+@app_commands.autocomplete(team=team_autocomplete)
 async def team_info(
     interaction: discord.Interaction,
     team: str
@@ -1249,6 +1287,7 @@ async def setup_teams(
         "Topdeck Believers",
         "Koura Corp",
         "Majin"
+        "L'Alliance du Dragon"
     ]
 
     added = 0
@@ -1389,6 +1428,7 @@ async def sync_teams(
     name="teams_info",
     description="Affiche toutes les équipes"
 )
+@app_commands.autocomplete(team=team_autocomplete)
 async def teams_info(
     interaction: discord.Interaction
 ):
@@ -1466,6 +1506,7 @@ async def teams_info(
     name="setup_team_role",
     description="Associe une équipe à un rôle Discord"
 )
+@app_commands.autocomplete(team=team_autocomplete)
 @app_commands.describe(
     equipe="Nom de l'équipe",
     role="Rôle Discord correspondant"
