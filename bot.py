@@ -86,36 +86,45 @@ async def unregister(interaction: discord.Interaction):
 
 @bot.tree.command(name="create_team", description="Créer une équipe")
 async def create_team(interaction: discord.Interaction, name: str):
-    
+
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
         return
 
     async with aiosqlite.connect("database.db") as db:
-    cursor = await db.execute(
-    "SELECT name FROM teams WHERE name = ?",
-    (name,)
-)
 
-if await cursor.fetchone():
-    await interaction.response.send_message(
-        "❌ Cette équipe existe déjà.",
-        ephemeral=True
-    )
-    return
-        await db.execute(
-            "INSERT INTO teams(name, points) VALUES(?,0)",
+        cursor = await db.execute(
+            "SELECT name FROM teams WHERE name = ?",
             (name,)
         )
+
+        if await cursor.fetchone():
+            await interaction.response.send_message(
+                "❌ Cette équipe existe déjà.",
+                ephemeral=True
+            )
+            return
+
+        await db.execute(
+            "INSERT INTO teams(name, points) VALUES(?, 0)",
+            (name,)
+        )
+
         await db.commit()
 
-    await interaction.response.send_message(f"🏆 Équipe créée : {name}",
-    ephemeral=True
+    await interaction.response.send_message(
+        f"🏆 Équipe créée : {name}",
+        ephemeral=True
     )
-
 @bot.tree.command(name="delete_team", description="Supprimer une équipe")
-@app_commands.autocomplete(team=team_autocomplete)
-async def delete_team(interaction: discord.Interaction, name: str):
+@app_commands.autocomplete(name=team_autocomplete)
+async def delete_team(
+    interaction: discord.Interaction,
+    name: str
+):
     if not is_staff(interaction.user):
         await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
         return
@@ -186,60 +195,90 @@ async def remove_player(interaction: discord.Interaction, player: discord.Member
     await interaction.response.send_message(f"🗑️ {player.mention} retiré.",
     ephemeral=True
     )
-
-@bot.tree.command(name="assign_team", description="Attribuer une équipe")
-@app_commands.autocomplete(team=team_autocomplete)
-cursor = await db.execute(
-    "SELECT 1 FROM teams WHERE name = ?",
-    (team,)
+@bot.tree.command(
+    name="assign_team",
+    description="Attribuer une équipe"
 )
+@app_commands.autocomplete(team=team_autocomplete)
+async def assign_team(
+    interaction: discord.Interaction,
+    player: discord.Member,
+    team: str
+):
 
-if not await cursor.fetchone():
-    await interaction.response.send_message(
-        "❌ Cette équipe n'existe pas.",
-        ephemeral=True
-    )
-    return
-async def assign_team(interaction: discord.Interaction, player: discord.Member, team: str):
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
         return
 
     async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            "SELECT 1 FROM teams WHERE name = ?",
+            (team,)
+        )
+
+        if not await cursor.fetchone():
+            await interaction.response.send_message(
+                "❌ Cette équipe n'existe pas.",
+                ephemeral=True
+            )
+            return
+
         await db.execute(
             "UPDATE players SET team_name=? WHERE discord_id=?",
             (team, str(player.id))
         )
+
         await db.commit()
 
-    await interaction.response.send_message(f"✅ {player.mention} rejoint {team}")
-
-@bot.tree.command(name="add_points", description="Ajouter des points")
-@app_commands.autocomplete(team=team_autocomplete)
-cursor = await db.execute(
-    "SELECT 1 FROM teams WHERE name = ?",
-    (team,)
-)
-
-if not await cursor.fetchone():
     await interaction.response.send_message(
-        "❌ Cette équipe n'existe pas.",
-        ephemeral=True
+        f"✅ {player.mention} rejoint {team}"
     )
-    return
-async def add_points(interaction: discord.Interaction, team: str, points: int):
+@bot.tree.command(
+    name="add_points",
+    description="Ajouter des points"
+)
+@app_commands.autocomplete(team=team_autocomplete)
+async def add_points(
+    interaction: discord.Interaction,
+    team: str,
+    points: int
+):
+
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
         return
 
     async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            "SELECT 1 FROM teams WHERE name = ?",
+            (team,)
+        )
+
+        if not await cursor.fetchone():
+            await interaction.response.send_message(
+                "❌ Cette équipe n'existe pas.",
+                ephemeral=True
+            )
+            return
+
         await db.execute(
-            "UPDATE teams SET points = points + ? WHERE name=?",
+            "UPDATE teams SET points = points + ? WHERE name = ?",
             (points, team)
         )
+
         await db.commit()
 
-    await interaction.response.send_message(f"➕ {points} point(s) ajouté(s) à {team}")
+    await interaction.response.send_message(
+        f"➕ {points} point(s) ajouté(s) à {team}"
+    )
 
 @bot.tree.command(name="remove_points", description="Retirer des points")
 @app_commands.autocomplete(team=team_autocomplete)
