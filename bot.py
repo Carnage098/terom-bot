@@ -333,100 +333,101 @@ async def remove_points(
 # ==================================
 
 @bot.tree.command(
-name="report_result",
-description="Déclarer un résultat de match"
+    name="report_result",
+    description="Déclarer un résultat de match"
 )
 @app_commands.describe(
-opponent="Adversaire",
-score="2-0, 2-1, 1-2 ou 0-2",
-points="Nombre de points attribués au match",
-my_deck="Ton deck",
-opponent_deck="Deck adverse"
+    opponent="Adversaire",
+    score="2-0, 2-1, 1-2 ou 0-2",
+    points="Nombre de points attribués au match",
+    my_deck="Ton deck",
+    opponent_deck="Deck adverse"
 )
 async def report_result(
-interaction: discord.Interaction,
-opponent: discord.Member,
-score: str,
-points: int,
-my_deck: str,
-opponent_deck: str = "Inconnu"
+    interaction: discord.Interaction,
+    opponent: discord.Member,
+    score: str,
+    points: int,
+    my_deck: str,
+    opponent_deck: str = "Inconnu"
 ):
 
-valid_scores = ["2-0", "2-1", "1-2", "0-2"]
+    valid_scores = ["2-0", "2-1", "1-2", "0-2"]
 
-if score not in valid_scores:
+    if score not in valid_scores:
+        await interaction.response.send_message(
+            "❌ Score invalide.",
+            ephemeral=True
+        )
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            "SELECT username, team_name FROM players WHERE discord_id = ?",
+            (str(interaction.user.id),)
+        )
+        player_data = await cursor.fetchone()
+
+        cursor = await db.execute(
+            "SELECT username, team_name FROM players WHERE discord_id = ?",
+            (str(opponent.id),)
+        )
+        opponent_data = await cursor.fetchone()
+
+        if not player_data:
+            await interaction.response.send_message(
+                "❌ Tu n'es pas inscrit.",
+                ephemeral=True
+            )
+            return
+
+        if not opponent_data:
+            await interaction.response.send_message(
+                "❌ Cet adversaire n'est pas inscrit.",
+                ephemeral=True
+            )
+            return
+
+        await db.execute(
+            """
+            INSERT INTO matches(
+                player_id,
+                player_name,
+                opponent_id,
+                opponent_name,
+                player_team,
+                opponent_team,
+                score,
+                points,
+                player_deck,
+                opponent_deck,
+                status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(interaction.user.id),
+                player_data[0],
+                str(opponent.id),
+                opponent_data[0],
+                player_data[1],
+                opponent_data[1],
+                score,
+                points,
+                my_deck,
+                opponent_deck,
+                "pending"
+            )
+        )
+
+        await db.commit()
+
     await interaction.response.send_message(
-        "❌ Score invalide.",
+        f"✅ Résultat enregistré.\n📊 Valeur du match : {points} point(s).",
         ephemeral=True
     )
-    return
 
-async with aiosqlite.connect("database.db") as db:
-
-    cursor = await db.execute(
-        "SELECT username, team_name FROM players WHERE discord_id = ?",
-        (str(interaction.user.id),)
-    )
-    player_data = await cursor.fetchone()
-
-    cursor = await db.execute(
-        "SELECT username, team_name FROM players WHERE discord_id = ?",
-        (str(opponent.id),)
-    )
-    opponent_data = await cursor.fetchone()
-
-    if not player_data:
-        await interaction.response.send_message(
-            "❌ Tu n'es pas inscrit.",
-            ephemeral=True
-        )
-        return
-
-    if not opponent_data:
-        await interaction.response.send_message(
-            "❌ Cet adversaire n'est pas inscrit.",
-            ephemeral=True
-        )
-        return
-
-    await db.execute(
-        """
-        INSERT INTO matches(
-            player_id,
-            player_name,
-            opponent_id,
-            opponent_name,
-            player_team,
-            opponent_team,
-            score,
-            points,
-            player_deck,
-            opponent_deck,
-            status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            str(interaction.user.id),
-            player_data[0],
-            str(opponent.id),
-            opponent_data[0],
-            player_data[1],
-            opponent_data[1],
-            score,
-            points,
-            my_deck,
-            opponent_deck,
-            "pending"
-        )
-    )
-
-    await db.commit()
-
-await interaction.response.send_message(
-    f"✅ Résultat enregistré.\n📊 Valeur du match : {points} point(s).",
-    ephemeral=True
-)
 
 # ==================================
 # PENDING RESULTS
@@ -490,104 +491,105 @@ async def pending_results(
 # ==================================
 
 @bot.tree.command(
-name="approve_result",
-description="Valider un résultat"
+    name="approve_result",
+    description="Valider un résultat"
 )
 async def approve_result(
-interaction: discord.Interaction,
-match_id: int
+    interaction: discord.Interaction,
+    match_id: int
 ):
 
-if not is_staff(interaction.user):
+    if not is_staff(interaction.user):
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                id,
+                player_team,
+                opponent_team,
+                score,
+                status,
+                points
+            FROM matches
+            WHERE id = ?
+            """,
+            (match_id,)
+        )
+
+        match = await cursor.fetchone()
+
+        if not match:
+            await interaction.response.send_message(
+                "❌ Match introuvable.",
+                ephemeral=True
+            )
+            return
+
+        if match[4] != "pending":
+            await interaction.response.send_message(
+                "❌ Match déjà traité.",
+                ephemeral=True
+            )
+            return
+
+        player_team = match[1]
+        opponent_team = match[2]
+        score = match[3]
+        match_points = match[5]
+
+        player_wins = int(score.split("-")[0])
+        opponent_wins = int(score.split("-")[1])
+
+        winner_team = player_team
+        loser_team = opponent_team
+
+        if opponent_wins > player_wins:
+            winner_team = opponent_team
+            loser_team = player_team
+
+        await db.execute(
+            """
+            UPDATE teams
+            SET points = points + ?
+            WHERE name = ?
+            """,
+            (match_points, winner_team)
+        )
+
+        await db.execute(
+            """
+            UPDATE teams
+            SET points = points - ?
+            WHERE name = ?
+            """,
+            (match_points, loser_team)
+        )
+
+        await db.execute(
+            """
+            UPDATE matches
+            SET status='approved'
+            WHERE id = ?
+            """,
+            (match_id,)
+        )
+
+        await db.commit()
+
     await interaction.response.send_message(
-        "❌ Permission refusée.",
+        f"✅ Match #{match_id} validé.\n"
+        f"🏆 {winner_team} gagne {match_points} point(s).\n"
+        f"📉 {loser_team} perd {match_points} point(s).",
         ephemeral=True
     )
-    return
 
-async with aiosqlite.connect("database.db") as db:
-
-    cursor = await db.execute(
-        """
-        SELECT
-            id,
-            player_team,
-            opponent_team,
-            score,
-            status,
-            points
-        FROM matches
-        WHERE id = ?
-        """,
-        (match_id,)
-    )
-
-    match = await cursor.fetchone()
-
-    if not match:
-        await interaction.response.send_message(
-            "❌ Match introuvable.",
-            ephemeral=True
-        )
-        return
-
-    if match[4] != "pending":
-        await interaction.response.send_message(
-            "❌ Match déjà traité.",
-            ephemeral=True
-        )
-        return
-
-    player_team = match[1]
-    opponent_team = match[2]
-    score = match[3]
-    match_points = match[5]
-
-    player_wins = int(score.split("-")[0])
-    opponent_wins = int(score.split("-")[1])
-
-    winner_team = player_team
-    loser_team = opponent_team
-
-    if opponent_wins > player_wins:
-        winner_team = opponent_team
-        loser_team = player_team
-
-    await db.execute(
-        """
-        UPDATE teams
-        SET points = points + ?
-        WHERE name = ?
-        """,
-        (match_points, winner_team)
-    )
-
-    await db.execute(
-        """
-        UPDATE teams
-        SET points = points - ?
-        WHERE name = ?
-        """,
-        (match_points, loser_team)
-    )
-
-    await db.execute(
-        """
-        UPDATE matches
-        SET status='approved'
-        WHERE id = ?
-        """,
-        (match_id,)
-    )
-
-    await db.commit()
-
-await interaction.response.send_message(
-    f"✅ Match #{match_id} validé.\n"
-    f"🏆 {winner_team} gagne {match_points} point(s).\n"
-    f"📉 {loser_team} perd {match_points} point(s).",
-    ephemeral=True
-)
 
 # ==================================
 # REJECT RESULT
