@@ -301,30 +301,31 @@ async def remove_points(
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-    "SELECT points FROM teams WHERE name = ?",
-    (team,)
-)
+            "SELECT points FROM teams WHERE name = ?",
+            (team,)
+        )
 
-row = await cursor.fetchone()
+        row = await cursor.fetchone()
 
-if not row:
-    await interaction.response.send_message(
-        "❌ Cette équipe n'existe pas.",
-        ephemeral=True
-    )
-    return
+        if not row:
+            await interaction.response.send_message(
+                "❌ Cette équipe n'existe pas.",
+                ephemeral=True
+            )
+            return
 
-new_points = row[0] - points
+        new_points = row[0] - points
 
-await db.execute(
-    "UPDATE teams SET points=? WHERE name=?",
-    (new_points, team)
-)
+        await db.execute(
+            "UPDATE teams SET points = ? WHERE name = ?",
+            (new_points, team)
+        )
 
         await db.commit()
 
     await interaction.response.send_message(
-        f"➖ {points} point(s) retiré(s) à {team}",
+        f"➖ {points} point(s) retiré(s) à {team}\n"
+        f"🏆 {team} possède maintenant {new_points} point(s).",
         ephemeral=True
     )
 # ==================================
