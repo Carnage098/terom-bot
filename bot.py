@@ -1348,7 +1348,7 @@ async def setup_teams(
         "Leader",
         "Topdeck Believers",
         "Koura Corp",
-        "Majin"
+        "Majin",
         "L'Alliance du Dragon"
     ]
 
