@@ -1620,7 +1620,48 @@ async def setup_team_role(
         f"✅ Le rôle **{role.name}** est maintenant lié à **{equipe}**.",
         ephemeral=True
     )
+@bot.tree.command(
+    name="set_points",
+    description="Définir les points d'une équipe"
+)
+@app_commands.autocomplete(team=team_autocomplete)
+async def set_points(
+    interaction: discord.Interaction,
+    team: str,
+    points: int
+):
 
+    if not is_staff(interaction.user):
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            "SELECT 1 FROM teams WHERE name = ?",
+            (team,)
+        )
+
+        if not await cursor.fetchone():
+            await interaction.response.send_message(
+                "❌ Cette équipe n'existe pas.",
+                ephemeral=True
+            )
+            return
+
+        await db.execute(
+            "UPDATE teams SET points = ? WHERE name = ?",
+            (points, team)
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"🏆 {team} possède maintenant {points} point(s)."
+    )
 
 bot.run(TOKEN)
 
