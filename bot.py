@@ -314,10 +314,10 @@ async def leaderboard(
     for i, (name, points) in enumerate(rows, start=1):
 
         msg += (
-            f"{i}. "
-            f"{name} - "
-            f"{points} pts\n"
-        )
+    f"{i}. "
+    f"{name} : "
+    f"{points} pts\n"
+)
 
     await interaction.response.send_message(msg)
 @bot.tree.command(
