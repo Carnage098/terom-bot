@@ -830,7 +830,6 @@ async def reject_result(
             "❌ Permission refusée.",
             ephemeral=True
         )
-
         return
 
     guild_id = str(interaction.guild.id)
@@ -839,7 +838,7 @@ async def reject_result(
 
         cursor = await db.execute(
             """
-            SELECT id
+            SELECT status
             FROM matches
             WHERE id = ?
             AND guild_id = ?
@@ -858,7 +857,14 @@ async def reject_result(
                 "❌ Match introuvable.",
                 ephemeral=True
             )
+            return
 
+        if match[0] != "pending":
+
+            await interaction.response.send_message(
+                "❌ Match déjà traité.",
+                ephemeral=True
+            )
             return
 
         await db.execute(
@@ -1418,7 +1424,9 @@ async def deck_graph(
 
         cursor = await db.execute(
             """
-            SELECT player_deck
+            SELECT
+                player_deck,
+                opponent_deck
             FROM matches
             WHERE guild_id = ?
             AND status = 'approved'
@@ -1426,17 +1434,19 @@ async def deck_graph(
             (guild_id,)
         )
 
-        decks = await cursor.fetchall()
+        matches = await cursor.fetchall()
 
     counts = {}
 
-    for deck in decks:
+    for player_deck, opponent_deck in matches:
 
-        deck_name = deck[0] or "Autres"
+        for deck in [player_deck, opponent_deck]:
 
-        counts[deck_name] = (
-            counts.get(deck_name, 0) + 1
-        )
+            deck_name = deck or "Autres"
+
+            counts[deck_name] = (
+                counts.get(deck_name, 0) + 1
+            )
 
     if not counts:
 
@@ -1456,53 +1466,6 @@ async def deck_graph(
 
     create_deck_graph(
         data,
-        filename
-    )
-
-    await interaction.response.send_message(
-        file=discord.File(filename)
-    )
-@bot.tree.command(
-    name="export_tournament",
-    description="Exporter le tournoi"
-)
-async def export_tournament(
-    interaction: discord.Interaction
-):
-
-    if not is_staff(interaction.user):
-
-        await interaction.response.send_message(
-            "❌ Permission refusée.",
-            ephemeral=True
-        )
-        return
-
-    guild_id = str(interaction.guild.id)
-
-    async with aiosqlite.connect("database.db") as db:
-
-        cursor = await db.execute(
-            """
-            SELECT
-                player_name,
-                opponent_name,
-                score,
-                player_deck,
-                opponent_deck,
-                status
-            FROM matches
-            WHERE guild_id = ?
-            """,
-            (guild_id,)
-        )
-
-        matches = await cursor.fetchall()
-
-    filename = "tournoi.csv"
-
-    export_matches(
-        matches,
         filename
     )
 
