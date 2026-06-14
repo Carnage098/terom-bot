@@ -1,3 +1,4 @@
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -749,7 +750,7 @@ async def approve_result(
         status = match[3]
         match_points = match[4]
 
-        if not player_team or not opponent_team:
+    if not player_team or not opponent_team:
 
     await interaction.response.send_message(
         "❌ Une des équipes est invalide.",
