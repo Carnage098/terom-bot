@@ -59,34 +59,61 @@ async def on_ready():
     
 
 @bot.tree.command(name="register", description="S'inscrire au tournoi")
-async def register(interaction: discord.Interaction, deck: str = None):
+async def register(
+    interaction: discord.Interaction,
+    deck: str = None
+):
+
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
+
         cur = await db.execute(
-            "SELECT discord_id FROM players WHERE discord_id=?",
-            (str(interaction.user.id),)
+            """
+            SELECT discord_id
+            FROM players
+            WHERE discord_id = ?
+            AND guild_id = ?
+            """,
+            (
+                str(interaction.user.id),
+                guild_id
+            )
         )
+
         if await cur.fetchone():
-            await interaction.response.send_message("❌ Déjà inscrit.", ephemeral=True)
+
+            await interaction.response.send_message(
+                "❌ Déjà inscrit.",
+                ephemeral=True
+            )
+
             return
 
         await db.execute(
-            "INSERT INTO players(discord_id, username, deck, team_name) VALUES(?,?,?,NULL)",
-            (str(interaction.user.id), interaction.user.name, deck)
+            """
+            INSERT INTO players(
+                discord_id,
+                guild_id,
+                username,
+                deck,
+                team_name
+            )
+            VALUES (?, ?, ?, ?, NULL)
+            """,
+            (
+                str(interaction.user.id),
+                guild_id,
+                interaction.user.name,
+                deck
+            )
         )
+
         await db.commit()
 
-    await interaction.response.send_message("✅ Inscription réussie.")
-
-@bot.tree.command(name="unregister", description="Se désinscrire")
-async def unregister(interaction: discord.Interaction):
-    async with aiosqlite.connect("database.db") as db:
-        await db.execute(
-            "DELETE FROM players WHERE discord_id=?",
-            (str(interaction.user.id),)
-        )
-        await db.commit()
-
-    await interaction.response.send_message("🗑️ Désinscription effectuée.")
+    await interaction.response.send_message(
+        "✅ Inscription réussie."
+    )
 
 @bot.tree.command(name="create_team", description="Créer une équipe")
 async def create_team(interaction: discord.Interaction, name: str):
