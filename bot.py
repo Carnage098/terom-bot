@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord import app_commands
 import aiosqlite
 import os
+import json
 
 from database import init_db
 from permissions import is_staff
@@ -2086,11 +2087,268 @@ async def pending_matches(
         msg,
         ephemeral=True
     )
+
 @bot.tree.command(
-    name="backup_db",
-    description="Télécharger la base de données"
+    name="save_tournament",
+    description="Sauvegarder le tournoi"
 )
-async def backup_db(interaction: discord.Interaction):
+async def save_tournament(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    guild_id = str(interaction.guild.id)
+
+    async with aiosqlite.connect("database.db") as db:
+
+        db.row_factory = aiosqlite.Row
+
+        # Teams
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM teams
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
+        )
+
+        teams = [
+            dict(row)
+            for row in await cursor.fetchall()
+        ]
+
+        # Players
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM players
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
+        )
+
+        players = [
+            dict(row)
+            for row in await cursor.fetchall()
+        ]
+
+        # Matches
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM matches
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
+        )
+
+        matches = [
+            dict(row)
+            for row in await cursor.fetchall()
+        ]
+
+        # Team Roles
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM team_roles
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
+        )
+
+        team_roles = [
+            dict(row)
+            for row in await cursor.fetchall()
+        ]
+
+    backup = {
+        "version": 1,
+        "guild_id": guild_id,
+        "teams": teams,
+        "players": players,
+        "matches": matches,
+        "team_roles": team_roles
+    }
+
+    filename = (
+        f"tournament_backup_"
+        f"{guild_id}.json"
+    )
+
+    with open(
+        filename,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            backup,
+            file,
+            ensure_ascii=False,
+            indent=4,
+            default=str
+        )
+
+    await interaction.response.send_message(
+        "✅ Sauvegarde générée.",
+        file=discord.File(filename),
+        ephemeral=True
+    )
+@bot.tree.command(
+    name="restore_tournament",
+    description="Restaurer une sauvegarde du tournoi"
+)
+async def restore_tournament(
+    interaction: discord.Interaction,
+    fichier: discord.Attachment
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(
+        ephemeral=True
+    )
+
+    guild_id = str(interaction.guild.id)
+
+    try:
+
+        content = await fichier.read()
+
+        data = json.loads(
+            content.decode("utf-8")
+        )
+
+    except Exception as e:
+
+        await interaction.followup.send(
+            f"❌ Fichier invalide.\n{e}",
+            ephemeral=True
+        )
+        return
+
+    async with aiosqlite.connect("database.db") as db:
+
+        # Suppression des données actuelles
+
+        await db.execute(
+            "DELETE FROM matches WHERE guild_id = ?",
+            (guild_id,)
+        )
+
+        await db.execute(
+            "DELETE FROM players WHERE guild_id = ?",
+            (guild_id,)
+        )
+
+        await db.execute(
+            "DELETE FROM teams WHERE guild_id = ?",
+            (guild_id,)
+        )
+
+        await db.execute(
+            "DELETE FROM team_roles WHERE guild_id = ?",
+            (guild_id,)
+        )
+
+        # Teams
+
+        for team in data.get("teams", []):
+
+            await db.execute(
+                """
+                INSERT INTO teams(
+                    id,
+                    guild_id,
+                    name,
+                    tag,
+                    captain,
+                    wins,
+                    losses,
+                    points
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                team
+            )
+
+        # Players
+
+        for player in data.get("players", []):
+
+            await db.execute(
+                """
+                INSERT INTO players(
+                    discord_id,
+                    guild_id,
+                    username,
+                    deck,
+                    team_name,
+                    wins,
+                    losses
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                player
+            )
+
+        # Matches
+
+        for match in data.get("matches", []):
+
+            await db.execute(
+                """
+                INSERT INTO matches
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                match
+            )
+
+        # Team Roles
+
+        for role in data.get("team_roles", []):
+
+            await db.execute(
+                """
+                INSERT INTO team_roles(
+                    guild_id,
+                    team_name,
+                    role_id
+                )
+                VALUES (?, ?, ?)
+                """,
+                role
+            )
+
+        await db.commit()
+
+    await interaction.followup.send(
+        "✅ Tournoi restauré avec succès.",
+        ephemeral=True
+    )
+
+@bot.tree.command(
+    name="import_leaderboard",
+    description="Importer le classement Ulti-Mate"
+)
+async def import_leaderboard(
+    interaction: discord.Interaction
+):
 
     if not is_staff(interaction.user):
         await interaction.response.send_message(
@@ -2099,10 +2357,46 @@ async def backup_db(interaction: discord.Interaction):
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
+    leaderboard = {
+        "Team Spica": 20,
+        "Aristochats": 12,
+        "Koura Corp": 5,
+        "Topdeck Believers": 4,
+        "Leader": 3,
+        "Team Star": 2,
+        "The Hunter": 2,
+        "L'Alliance du Dragon": 1,
+        "Le Fun": -3,
+        "Majin": -4
+    }
+
+    async with aiosqlite.connect("database.db") as db:
+
+        for team, points in leaderboard.items():
+
+            await db.execute(
+                """
+                UPDATE teams
+                SET points = ?
+                WHERE guild_id = ?
+                AND name = ?
+                """,
+                (
+                    points,
+                    guild_id,
+                    team
+                )
+            )
+
+        await db.commit()
+
     await interaction.response.send_message(
-        file=discord.File("database.db"),
+        "✅ Classement importé.",
         ephemeral=True
     )
+
 
 bot.run(TOKEN)
 
