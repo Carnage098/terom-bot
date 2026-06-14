@@ -1480,6 +1480,8 @@ async def setup_teams(
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     official_teams = [
         "The Hunter",
         "Team Spica",
@@ -1499,26 +1501,31 @@ async def setup_teams(
 
         for team in official_teams:
 
-            await db.execute(
-    """
-    INSERT OR IGNORE INTO teams(
-        name,
-        captain,
-        wins,
-        losses,
-        points
-    )
-    VALUES (?, '', 0, 0, 0)
-    """,
-    (team,)
-)
+            result = await db.execute(
+                """
+                INSERT OR IGNORE INTO teams(
+                    guild_id,
+                    name,
+                    captain,
+                    wins,
+                    losses,
+                    points
+                )
+                VALUES (?, ?, '', 0, 0, 0)
+                """,
+                (
+                    guild_id,
+                    team
+                )
+            )
 
-            added += 1
+            if result.rowcount > 0:
+                added += 1
 
         await db.commit()
 
     await interaction.response.send_message(
-        f"🏆 {added} équipes officielles importées.",
+        f"🏆 {added} équipe(s) importée(s).",
         ephemeral=True
     )
 
