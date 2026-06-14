@@ -500,6 +500,8 @@ async def approve_result(
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
@@ -513,8 +515,12 @@ async def approve_result(
                 points
             FROM matches
             WHERE id = ?
+            AND guild_id = ?
             """,
-            (match_id,)
+            (
+                match_id,
+                guild_id
+            )
         )
 
         match = await cursor.fetchone()
@@ -552,18 +558,28 @@ async def approve_result(
             """
             UPDATE teams
             SET points = points + ?
-            WHERE name = ?
+            WHERE guild_id = ?
+            AND name = ?
             """,
-            (match_points, winner_team)
+            (
+                match_points,
+                guild_id,
+                winner_team
+            )
         )
 
         await db.execute(
             """
             UPDATE teams
             SET points = points - ?
-            WHERE name = ?
+            WHERE guild_id = ?
+            AND name = ?
             """,
-            (match_points, loser_team)
+            (
+                match_points,
+                guild_id,
+                loser_team
+            )
         )
 
         await db.execute(
@@ -571,8 +587,12 @@ async def approve_result(
             UPDATE matches
             SET status='approved'
             WHERE id = ?
+            AND guild_id = ?
             """,
-            (match_id,)
+            (
+                match_id,
+                guild_id
+            )
         )
 
         await db.commit()
@@ -583,7 +603,6 @@ async def approve_result(
         f"📉 {loser_team} perd {match_points} point(s).",
         ephemeral=True
     )
-
 
 # ==================================
 # REJECT RESULT
