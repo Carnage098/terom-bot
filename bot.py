@@ -196,21 +196,49 @@ async def leaderboard(interaction: discord.Interaction):
 
     await interaction.response.send_message(msg)
 
-@bot.tree.command(name="add_player", description="Ajouter un joueur")
-async def add_player(interaction: discord.Interaction, player: discord.Member):
+@bot.tree.command(
+    name="add_player",
+    description="Ajouter un joueur"
+)
+async def add_player(
+    interaction: discord.Interaction,
+    player: discord.Member
+):
+
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
+
         await db.execute(
-            "INSERT OR IGNORE INTO players(discord_id, username, deck, team_name) VALUES(?,?,NULL,NULL)",
-            (str(player.id), player.name)
+            """
+            INSERT OR IGNORE INTO players(
+                discord_id,
+                guild_id,
+                username,
+                deck,
+                team_name
+            )
+            VALUES (?, ?, ?, NULL, NULL)
+            """,
+            (
+                str(player.id),
+                guild_id,
+                player.name
+            )
         )
+
         await db.commit()
 
-    await interaction.response.send_message(f"✅ {player.mention} ajouté.",
-    ephemeral=True
+    await interaction.response.send_message(
+        f"✅ {player.mention} ajouté.",
+        ephemeral=True
     )
 
 @bot.tree.command(name="remove_player", description="Retirer un joueur")
