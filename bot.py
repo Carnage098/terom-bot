@@ -473,7 +473,7 @@ async def remove_points(
             )
             return
 
-        new_points = max(0, row[0] - points)
+        new_points = row[0] - points
 
         await db.execute(
             """
@@ -735,6 +735,14 @@ async def approve_result(
         score = match[2]
         status = match[3]
         match_points = match[4]
+
+        if not player_team or not opponent_team:
+
+    await interaction.response.send_message(
+        "❌ Une des équipes est invalide.",
+        ephemeral=True
+    )
+    return
 
         if status != "pending":
 
