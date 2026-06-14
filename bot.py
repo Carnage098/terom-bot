@@ -526,17 +526,39 @@ async def report_result(
     valid_scores = ["2-0", "2-1", "1-2", "0-2"]
 
     if score not in valid_scores:
+
         await interaction.response.send_message(
             "❌ Score invalide.",
             ephemeral=True
         )
+
+        return
+
+    if points <= 0:
+
+        await interaction.response.send_message(
+            "❌ Les points doivent être supérieurs à 0.",
+            ephemeral=True
+        )
+
+        return
+
+    if opponent.id == interaction.user.id:
+
+        await interaction.response.send_message(
+            "❌ Tu ne peux pas t'affronter toi-même.",
+            ephemeral=True
+        )
+
         return
 
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
             """
-            SELECT username, team_name
+            SELECT
+                username,
+                team_name
             FROM players
             WHERE discord_id = ?
             AND guild_id = ?
@@ -551,7 +573,9 @@ async def report_result(
 
         cursor = await db.execute(
             """
-            SELECT username, team_name
+            SELECT
+                username,
+                team_name
             FROM players
             WHERE discord_id = ?
             AND guild_id = ?
@@ -565,20 +589,51 @@ async def report_result(
         opponent_data = await cursor.fetchone()
 
         if not player_data:
+
             await interaction.response.send_message(
                 "❌ Tu n'es pas inscrit.",
                 ephemeral=True
             )
+
             return
 
         if not opponent_data:
+
             await interaction.response.send_message(
                 "❌ Cet adversaire n'est pas inscrit.",
                 ephemeral=True
             )
+
             return
 
-        await db.execute(
+        if not player_data[1]:
+
+            await interaction.response.send_message(
+                "❌ Tu n'appartiens à aucune équipe.",
+                ephemeral=True
+            )
+
+            return
+
+        if not opponent_data[1]:
+
+            await interaction.response.send_message(
+                "❌ Cet adversaire n'appartient à aucune équipe.",
+                ephemeral=True
+            )
+
+            return
+
+        if player_data[1] == opponent_data[1]:
+
+            await interaction.response.send_message(
+                "❌ Impossible de déclarer un match entre deux joueurs de la même équipe.",
+                ephemeral=True
+            )
+
+            return
+
+        cursor = await db.execute(
             """
             INSERT INTO matches(
                 guild_id,
@@ -612,10 +667,15 @@ async def report_result(
             )
         )
 
+        match_id = cursor.lastrowid
+
         await db.commit()
 
     await interaction.response.send_message(
-        f"✅ Résultat enregistré.\n📊 Valeur du match : {points} point(s).",
+        f"✅ Résultat enregistré.\n"
+        f"🆔 Match #{match_id}\n"
+        f"📊 Valeur du match : {points} point(s).\n"
+        f"⏳ En attente de validation du staff.",
         ephemeral=True
     )
 # ==================================
