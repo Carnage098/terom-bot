@@ -469,7 +469,7 @@ async def remove_points(
             )
             return
 
-        new_points = row[0] - points
+        new_points = max(0, row[0] - points)
 
         await db.execute(
             """
@@ -627,10 +627,12 @@ async def approve_result(
 ):
 
     if not is_staff(interaction.user):
+
         await interaction.response.send_message(
             "❌ Permission refusée.",
             ephemeral=True
         )
+
         return
 
     guild_id = str(interaction.guild.id)
@@ -640,7 +642,6 @@ async def approve_result(
         cursor = await db.execute(
             """
             SELECT
-                id,
                 player_team,
                 opponent_team,
                 score,
@@ -659,31 +660,48 @@ async def approve_result(
         match = await cursor.fetchone()
 
         if not match:
+
             await interaction.response.send_message(
                 "❌ Match introuvable.",
                 ephemeral=True
             )
+
             return
 
-        if match[4] != "pending":
+        player_team = match[0]
+        opponent_team = match[1]
+        score = match[2]
+        status = match[3]
+        match_points = match[4]
+
+        if status != "pending":
+
             await interaction.response.send_message(
                 "❌ Match déjà traité.",
                 ephemeral=True
             )
+
             return
 
-        player_team = match[1]
-        opponent_team = match[2]
-        score = match[3]
-        match_points = match[5]
+        if not player_team or not opponent_team:
+
+            await interaction.response.send_message(
+                "❌ Les deux joueurs doivent appartenir à une équipe.",
+                ephemeral=True
+            )
+
+            return
 
         player_wins = int(score.split("-")[0])
         opponent_wins = int(score.split("-")[1])
 
-        winner_team = player_team
-        loser_team = opponent_team
+        if player_wins > opponent_wins:
 
-        if opponent_wins > player_wins:
+            winner_team = player_team
+            loser_team = opponent_team
+
+        else:
+
             winner_team = opponent_team
             loser_team = player_team
 
@@ -704,7 +722,7 @@ async def approve_result(
         await db.execute(
             """
             UPDATE teams
-            SET points = points - ?
+            SET points = MAX(0, points - ?)
             WHERE guild_id = ?
             AND name = ?
             """,
@@ -718,7 +736,7 @@ async def approve_result(
         await db.execute(
             """
             UPDATE matches
-            SET status='approved'
+            SET status = 'approved'
             WHERE id = ?
             AND guild_id = ?
             """,
