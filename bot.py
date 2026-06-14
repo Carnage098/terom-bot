@@ -912,6 +912,8 @@ async def match_history(
     interaction: discord.Interaction
 ):
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
@@ -922,10 +924,12 @@ async def match_history(
                 opponent_name,
                 score
             FROM matches
-            WHERE status='approved'
+            WHERE guild_id = ?
+            AND status = 'approved'
             ORDER BY id DESC
             LIMIT 20
-            """
+            """,
+            (guild_id,)
         )
 
         matches = await cursor.fetchall()
@@ -933,7 +937,7 @@ async def match_history(
     if not matches:
 
         await interaction.response.send_message(
-            "❌ Aucun match validé.", 
+            "❌ Aucun match validé.",
             ephemeral=True
         )
 
@@ -944,7 +948,7 @@ async def match_history(
     for match in matches:
 
         msg += (
-            f"#{match[0]} "
+            f"#{match[0]} | "
             f"{match[1]} "
             f"{match[3]} "
             f"{match[2]}\n"
