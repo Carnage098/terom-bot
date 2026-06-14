@@ -114,7 +114,7 @@ async def register(
             )
         )
 
-        await db.commit()
+    await db.commit()
 
     await interaction.response.send_message(
         "✅ Inscription réussie."
