@@ -827,12 +827,12 @@ async def approve_result(
         await db.commit()
 
     await interaction.response.send_message(
-        f"✅ Match #{match_id} validé.\n"
-        f"🏆 {winner_team} gagne {match_points} point(s).\n"
-        f"📈 {winner_team} : +{match_points} pts\n"
-        f"📉 {loser_team} : -{match_points} pts",
-        ephemeral=True
-    )
+    f"✅ Match #{match_id} validé\n\n"
+    f"🏆 Équipe gagnante : {winner_team}\n"
+    f"📈 +{match_points} pts\n\n"
+    f"💀 Équipe perdante : {loser_team}\n"
+    f"📉 -{match_points} pts"
+)
 # ==================================
 # REJECT RESULT
 # ==================================
