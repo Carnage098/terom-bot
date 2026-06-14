@@ -5,8 +5,7 @@ from discord import app_commands
 import aiosqlite
 import os
 import json
-
-from database import init_db
+from database import init_db()
 from permissions import is_staff
 from charts import create_deck_graph
 from exporter import export_matches
