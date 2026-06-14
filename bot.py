@@ -6,6 +6,8 @@ import os
 
 from database import init_db
 from permissions import is_staff
+from charts import create_deck_graph
+from exporter import export_matches
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
