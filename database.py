@@ -6,7 +6,7 @@ async def init_db():
 
     from database_manager import get_db
 
-    async with await get_db() as db:
+    db = await get_db()
 
         # ==================================
         # TOURNOIS
