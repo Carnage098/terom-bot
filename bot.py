@@ -2344,13 +2344,15 @@ async def restore_tournament(
 
 @bot.tree.command(
     name="import_leaderboard",
-    description="Importer le classement Ulti-Mate"
+    description="Importer un classement complet"
 )
 async def import_leaderboard(
-    interaction: discord.Interaction
+    interaction: discord.Interaction,
+    classement: str
 ):
 
     if not is_staff(interaction.user):
+
         await interaction.response.send_message(
             "❌ Permission refusée.",
             ephemeral=True
@@ -2359,43 +2361,83 @@ async def import_leaderboard(
 
     guild_id = str(interaction.guild.id)
 
-    leaderboard = {
-        "Team Spica": 20,
-        "Aristochats": 12,
-        "Koura Corp": 5,
-        "Topdeck Believers": 4,
-        "Leader": 3,
-        "Team Star": 2,
-        "The Hunter": 2,
-        "L'Alliance du Dragon": 1,
-        "Le Fun": -3,
-        "Majin": -4
-    }
+    lignes = classement.splitlines()
+
+    updated = 0
+    errors = []
 
     async with aiosqlite.connect("database.db") as db:
 
-        for team, points in leaderboard.items():
+        for ligne in lignes:
 
-            await db.execute(
-                """
-                UPDATE teams
-                SET points = ?
-                WHERE guild_id = ?
-                AND name = ?
-                """,
-                (
-                    points,
-                    guild_id,
-                    team
+            ligne = ligne.strip()
+
+            if not ligne:
+                continue
+
+            try:
+
+                team, points = ligne.split(":")
+
+                team = team.strip()
+                points = int(points.strip())
+
+                cursor = await db.execute(
+                    """
+                    SELECT 1
+                    FROM teams
+                    WHERE guild_id = ?
+                    AND name = ?
+                    """,
+                    (
+                        guild_id,
+                        team
+                    )
                 )
-            )
+
+                if not await cursor.fetchone():
+
+                    errors.append(team)
+                    continue
+
+                await db.execute(
+                    """
+                    UPDATE teams
+                    SET points = ?
+                    WHERE guild_id = ?
+                    AND name = ?
+                    """,
+                    (
+                        points,
+                        guild_id,
+                        team
+                    )
+                )
+
+                updated += 1
+
+            except Exception:
+
+                errors.append(ligne)
 
         await db.commit()
 
+    msg = (
+        f"✅ {updated} équipe(s) mise(s) à jour."
+    )
+
+    if errors:
+
+        msg += (
+            "\n\n⚠️ Lignes ignorées :\n"
+            + "\n".join(errors)
+        )
+
     await interaction.response.send_message(
-        "✅ Classement importé.",
+        msg,
         ephemeral=True
     )
+
 
 
 bot.run(TOKEN)
