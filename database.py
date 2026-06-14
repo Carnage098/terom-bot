@@ -115,4 +115,4 @@ async with await get_db() as db:
         """)
 
         await db.commit()
-    print("✅ Base de données initialisée")
+        print("✅ Base de données initialisée")
