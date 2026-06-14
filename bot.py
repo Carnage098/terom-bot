@@ -1589,7 +1589,7 @@ async def setup_teams(
 
 @bot.tree.command(
     name="sync_teams",
-    description="Synchronise toutes les équipes"
+    description="Synchronise les équipes avec les rôles Discord"
 )
 async def sync_teams(
     interaction: discord.Interaction
@@ -1601,15 +1601,19 @@ async def sync_teams(
             "❌ Permission refusée.",
             ephemeral=True
         )
+
         return
 
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer(
+        ephemeral=True
+    )
 
     guild_id = str(interaction.guild.id)
 
     teams_synced = 0
-    added = 0
-    updated = 0
+    players_added = 0
+    players_updated = 0
+    players_removed = 0
 
     async with aiosqlite.connect("database.db") as db:
 
@@ -1626,6 +1630,8 @@ async def sync_teams(
 
         configs = await cursor.fetchall()
 
+        synced_players = set()
+
         for team_name, role_id in configs:
 
             role = interaction.guild.get_role(
@@ -1637,7 +1643,16 @@ async def sync_teams(
 
             teams_synced += 1
 
+            role_members = {
+                str(member.id)
+                for member in role.members
+            }
+
             for member in role.members:
+
+                synced_players.add(
+                    str(member.id)
+                )
 
                 cursor = await db.execute(
                     """
@@ -1659,18 +1674,21 @@ async def sync_teams(
                     await db.execute(
                         """
                         UPDATE players
-                        SET team_name = ?
+                        SET
+                            username = ?,
+                            team_name = ?
                         WHERE discord_id = ?
                         AND guild_id = ?
                         """,
                         (
+                            member.display_name,
                             team_name,
                             str(member.id),
                             guild_id
                         )
                     )
 
-                    updated += 1
+                    players_updated += 1
 
                 else:
 
@@ -1693,15 +1711,50 @@ async def sync_teams(
                         )
                     )
 
-                    added += 1
+                    players_added += 1
+
+            cursor = await db.execute(
+                """
+                SELECT discord_id
+                FROM players
+                WHERE guild_id = ?
+                AND team_name = ?
+                """,
+                (
+                    guild_id,
+                    team_name
+                )
+            )
+
+            database_players = await cursor.fetchall()
+
+            for (discord_id,) in database_players:
+
+                if discord_id not in role_members:
+
+                    await db.execute(
+                        """
+                        UPDATE players
+                        SET team_name = NULL
+                        WHERE discord_id = ?
+                        AND guild_id = ?
+                        """,
+                        (
+                            discord_id,
+                            guild_id
+                        )
+                    )
+
+                    players_removed += 1
 
         await db.commit()
 
     await interaction.followup.send(
         f"✅ Synchronisation terminée\n\n"
         f"🏆 Équipes synchronisées : {teams_synced}\n"
-        f"👤 Joueurs ajoutés : {added}\n"
-        f"🔄 Joueurs mis à jour : {updated}",
+        f"➕ Joueurs ajoutés : {players_added}\n"
+        f"🔄 Joueurs mis à jour : {players_updated}\n"
+        f"➖ Joueurs retirés : {players_removed}",
         ephemeral=True
     )
 @bot.tree.command(
