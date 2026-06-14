@@ -1781,5 +1781,90 @@ async def set_points(
         ephemeral=True
     )
 
+@bot.tree.command(
+    name="teams_info",
+    description="Affiche toutes les équipes"
+)
+async def teams_info(
+    interaction: discord.Interaction
+):
+
+    guild_id = str(interaction.guild.id)
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                name,
+                captain,
+                wins,
+                losses,
+                points
+            FROM teams
+            WHERE guild_id = ?
+            ORDER BY points DESC
+            """,
+            (guild_id,)
+        )
+
+        teams = await cursor.fetchall()
+
+        if not teams:
+
+            await interaction.response.send_message(
+                "❌ Aucune équipe trouvée.",
+                ephemeral=True
+            )
+            return
+
+        embed = discord.Embed(
+            title="🏆 Classement des équipes",
+            color=discord.Color.gold()
+        )
+
+        for name, captain, wins, losses, points in teams:
+
+            cursor = await db.execute(
+                """
+                SELECT username
+                FROM players
+                WHERE guild_id = ?
+                AND team_name = ?
+                ORDER BY username
+                """,
+                (
+                    guild_id,
+                    name
+                )
+            )
+
+            members = await cursor.fetchall()
+
+            member_list = "\n".join(
+                f"• {member[0]}"
+                for member in members
+            )
+
+            if not member_list:
+                member_list = "Aucun membre"
+
+            embed.add_field(
+                name=name,
+                value=(
+                    f"👑 Capitaine : {captain or 'Non défini'}\n"
+                    f"🏅 Points : {points}\n"
+                    f"✅ Victoires : {wins}\n"
+                    f"❌ Défaites : {losses}\n\n"
+                    f"👥 Membres ({len(members)})\n"
+                    f"{member_list}"
+                ),
+                inline=False
+            )
+
+    await interaction.response.send_message(
+        embed=embed
+    )
+
 bot.run(TOKEN)
 
