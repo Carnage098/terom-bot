@@ -24,13 +24,17 @@ async def team_autocomplete(
 
     async with aiosqlite.connect("database.db") as db:
 
-        cursor = await db.execute(
-            """
-            SELECT name
-            FROM teams
-            ORDER BY name
-            """
-        )
+        guild_id = str(interaction.guild.id)
+
+    cursor = await db.execute(
+    """
+    SELECT name
+    FROM teams
+    WHERE guild_id = ?
+    ORDER BY name
+    """,
+    (guild_id,)
+)
 
         teams = await cursor.fetchall()
 
