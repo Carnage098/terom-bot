@@ -150,39 +150,45 @@ async def create_team(interaction: discord.Interaction, name: str):
         f"🏆 Équipe créée : {name}",
         ephemeral=True
     )
-@bot.tree.command(name="delete_team", description="Supprimer une équipe")
+@bot.tree.command(
+    name="delete_team",
+    description="Supprimer une équipe"
+)
 @app_commands.autocomplete(name=team_autocomplete)
 async def delete_team(
     interaction: discord.Interaction,
     name: str
 ):
+
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
-        return
-
-    async with aiosqlite.connect("database.db") as db:
-        await db.execute("DELETE FROM teams WHERE name=?", (name,))
-        await db.commit()
-
-    await interaction.response.send_message(f"🗑️ Équipe supprimée : {name}")
-
-@bot.tree.command(name="teams", description="Voir les équipes")
-async def teams(interaction: discord.Interaction):
-    async with aiosqlite.connect("database.db") as db:
-        cur = await db.execute("SELECT name, points FROM teams ORDER BY points DESC")
-        rows = await cur.fetchall()
-
-    if not rows:
-        await interaction.response.send_message("❌ Aucune équipe.",
-        ephemeral=True
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
         )
         return
 
-    msg = "🏆 Équipes\n\n"
-    for name, points in rows:
-        msg += f"• {name} ({points} pts)\n"
+    guild_id = str(interaction.guild.id)
 
-    await interaction.response.send_message(msg)
+    async with aiosqlite.connect("database.db") as db:
+
+        await db.execute(
+            """
+            DELETE FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                name
+            )
+        )
+
+        await db.commit()
+
+    await interaction.response.send_message(
+        f"🗑️ Équipe supprimée : {name}",
+        ephemeral=True
+    )
 
 @bot.tree.command(name="leaderboard", description="Classement des équipes")
 async def leaderboard(interaction: discord.Interaction):
@@ -241,19 +247,44 @@ async def add_player(
         ephemeral=True
     )
 
-@bot.tree.command(name="remove_player", description="Retirer un joueur")
-async def remove_player(interaction: discord.Interaction, player: discord.Member):
+@bot.tree.command(
+    name="remove_player",
+    description="Retirer un joueur"
+)
+async def remove_player(
+    interaction: discord.Interaction,
+    player: discord.Member
+):
+
     if not is_staff(interaction.user):
-        await interaction.response.send_message("❌ Permission refusée.", ephemeral=True)
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
-        await db.execute("DELETE FROM players WHERE discord_id=?", (str(player.id),))
+
+        await db.execute(
+            """
+            DELETE FROM players
+            WHERE discord_id = ?
+            AND guild_id = ?
+            """,
+            (
+                str(player.id),
+                guild_id
+            )
+        )
+
         await db.commit()
 
-    await interaction.response.send_message(f"🗑️ {player.mention} retiré.",
-    ephemeral=True
-    )
+    await interaction.response.send_message(
+        f"🗑️ {player.mention} retiré.",
+        ephemeral=True
+    ) 
 @bot.tree.command(
     name="assign_team",
     description="Attribuer une équipe"
@@ -272,11 +303,21 @@ async def assign_team(
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT 1 FROM teams WHERE name = ?",
-            (team,)
+            """
+            SELECT 1
+            FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                team
+            )
         )
 
         if not await cursor.fetchone():
@@ -287,8 +328,17 @@ async def assign_team(
             return
 
         await db.execute(
-            "UPDATE players SET team_name=? WHERE discord_id=?",
-            (team, str(player.id))
+            """
+            UPDATE players
+            SET team_name = ?
+            WHERE discord_id = ?
+            AND guild_id = ?
+            """,
+            (
+                team,
+                str(player.id),
+                guild_id
+            )
         )
 
         await db.commit()
@@ -314,11 +364,21 @@ async def add_points(
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT 1 FROM teams WHERE name = ?",
-            (team,)
+            """
+            SELECT 1
+            FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                team
+            )
         )
 
         if not await cursor.fetchone():
@@ -329,8 +389,17 @@ async def add_points(
             return
 
         await db.execute(
-            "UPDATE teams SET points = points + ? WHERE name = ?",
-            (points, team)
+            """
+            UPDATE teams
+            SET points = points + ?
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                points,
+                guild_id,
+                team
+            )
         )
 
         await db.commit()
@@ -357,11 +426,21 @@ async def remove_points(
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT points FROM teams WHERE name = ?",
-            (team,)
+            """
+            SELECT points
+            FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                team
+            )
         )
 
         row = await cursor.fetchone()
@@ -376,8 +455,17 @@ async def remove_points(
         new_points = row[0] - points
 
         await db.execute(
-            "UPDATE teams SET points = ? WHERE name = ?",
-            (new_points, team)
+            """
+            UPDATE teams
+            SET points = ?
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                new_points,
+                guild_id,
+                team
+            )
         )
 
         await db.commit()
