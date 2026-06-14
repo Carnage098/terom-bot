@@ -4,7 +4,9 @@ DB_NAME = "database.db"
 
 async def init_db():
 
-    async with aiosqlite.connect(DB_NAME) as db:
+    from database_manager import get_db
+
+async with await get_db() as db:
 
         # ==================================
         # TOURNOIS
