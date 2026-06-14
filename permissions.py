@@ -2,7 +2,6 @@ STAFF_ROLES = [
     "Admin",
     "🛑Modo"
     "Admin Adjoint"
-    "Aristochats"
 ]
 
 def is_staff(member):
