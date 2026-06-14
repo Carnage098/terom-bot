@@ -758,23 +758,53 @@ async def reject_result(
 
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT id
+            FROM matches
+            WHERE id = ?
+            AND guild_id = ?
+            """,
+            (
+                match_id,
+                guild_id
+            )
+        )
+
+        match = await cursor.fetchone()
+
+        if not match:
+
+            await interaction.response.send_message(
+                "❌ Match introuvable.",
+                ephemeral=True
+            )
+
+            return
 
         await db.execute(
             """
             UPDATE matches
-            SET status='rejected'
+            SET status = 'rejected'
             WHERE id = ?
+            AND guild_id = ?
             """,
-            (match_id,)
+            (
+                match_id,
+                guild_id
+            )
         )
 
         await db.commit()
 
     await interaction.response.send_message(
-        f"❌ Match #{match_id} refusé.", 
+        f"❌ Match #{match_id} refusé.",
         ephemeral=True
-    ) 
+    )
 @bot.tree.command(
     name="team_info",
     description="Voir les informations d'une équipe"
