@@ -6,7 +6,7 @@ async def init_db():
 
     from database_manager import get_db
 
-async with await get_db() as db:
+    async with await get_db() as db:
 
         # ==================================
         # TOURNOIS
@@ -115,4 +115,5 @@ async with await get_db() as db:
         """)
 
         await db.commit()
-        print("✅ Base de données initialisée")
+
+    print("✅ Base de données initialisée")
