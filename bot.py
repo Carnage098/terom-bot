@@ -115,33 +115,66 @@ async def register(
         "✅ Inscription réussie."
     )
 
-@bot.tree.command(name="create_team", description="Créer une équipe")
-async def create_team(interaction: discord.Interaction, name: str):
+@bot.tree.command(
+    name="create_team",
+    description="Créer une équipe"
+)
+async def create_team(
+    interaction: discord.Interaction,
+    name: str
+):
 
     if not is_staff(interaction.user):
+
         await interaction.response.send_message(
             "❌ Permission refusée.",
             ephemeral=True
         )
+
         return
+
+    guild_id = str(interaction.guild.id)
 
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT name FROM teams WHERE name = ?",
-            (name,)
+            """
+            SELECT 1
+            FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                name
+            )
         )
 
         if await cursor.fetchone():
+
             await interaction.response.send_message(
                 "❌ Cette équipe existe déjà.",
                 ephemeral=True
             )
+
             return
 
         await db.execute(
-            "INSERT INTO teams(name, points) VALUES(?, 0)",
-            (name,)
+            """
+            INSERT INTO teams(
+                guild_id,
+                name,
+                captain,
+                wins,
+                losses,
+                points
+            )
+            VALUES (?, ?, '', 0, 0, 0)
+            """,
+            (
+                guild_id,
+                name
+            )
         )
 
         await db.commit()
@@ -189,102 +222,85 @@ async def delete_team(
         f"🗑️ Équipe supprimée : {name}",
         ephemeral=True
     )
+@bot.tree.command(name="teams", description="Voir les équipes")
+async def teams(interaction: discord.Interaction):
 
-@bot.tree.command(name="leaderboard", description="Classement des équipes")
-async def leaderboard(interaction: discord.Interaction):
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
-        cur = await db.execute("SELECT name, points FROM teams ORDER BY points DESC")
+
+        cur = await db.execute(
+            """
+            SELECT name, points
+            FROM teams
+            WHERE guild_id = ?
+            ORDER BY points DESC
+            """,
+            (guild_id,)
+        )
+
         rows = await cur.fetchall()
 
-    msg = "🏆 Classement Ulti-Mate\n\n"
-    for i, (name, points) in enumerate(rows, start=1):
-        msg += f"{i}. {name} - {points} pts\n"
+    if not rows:
+        await interaction.response.send_message(
+            "❌ Aucune équipe.",
+            ephemeral=True
+        )
+        return
+
+    msg = "🏆 Équipes\n\n"
+
+    for name, points in rows:
+        msg += f"• {name} ({points} pts)\n"
 
     await interaction.response.send_message(msg)
 
 @bot.tree.command(
-    name="add_player",
-    description="Ajouter un joueur"
+    name="leaderboard",
+    description="Classement des équipes"
 )
-async def add_player(
-    interaction: discord.Interaction,
-    player: discord.Member
+async def leaderboard(
+    interaction: discord.Interaction
 ):
-
-    if not is_staff(interaction.user):
-        await interaction.response.send_message(
-            "❌ Permission refusée.",
-            ephemeral=True
-        )
-        return
 
     guild_id = str(interaction.guild.id)
 
     async with aiosqlite.connect("database.db") as db:
 
-        await db.execute(
+        cursor = await db.execute(
             """
-            INSERT OR IGNORE INTO players(
-                discord_id,
-                guild_id,
-                username,
-                deck,
-                team_name
-            )
-            VALUES (?, ?, ?, NULL, NULL)
+            SELECT
+                name,
+                points
+            FROM teams
+            WHERE guild_id = ?
+            ORDER BY points DESC
             """,
-            (
-                str(player.id),
-                guild_id,
-                player.name
-            )
+            (guild_id,)
         )
 
-        await db.commit()
+        rows = await cursor.fetchall()
 
-    await interaction.response.send_message(
-        f"✅ {player.mention} ajouté.",
-        ephemeral=True
-    )
+    if not rows:
 
-@bot.tree.command(
-    name="remove_player",
-    description="Retirer un joueur"
-)
-async def remove_player(
-    interaction: discord.Interaction,
-    player: discord.Member
-):
-
-    if not is_staff(interaction.user):
         await interaction.response.send_message(
-            "❌ Permission refusée.",
+            "❌ Aucune équipe trouvée.",
             ephemeral=True
         )
+
         return
 
-    guild_id = str(interaction.guild.id)
+    msg = "🏆 Classement Ulti-Mate\n\n"
 
-    async with aiosqlite.connect("database.db") as db:
+    for i, (name, points) in enumerate(rows, start=1):
 
-        await db.execute(
-            """
-            DELETE FROM players
-            WHERE discord_id = ?
-            AND guild_id = ?
-            """,
-            (
-                str(player.id),
-                guild_id
-            )
+        msg += (
+            f"{i}. "
+            f"{name} - "
+            f"{points} pts\n"
         )
 
-        await db.commit()
-
-    await interaction.response.send_message(
-        f"🗑️ {player.mention} retiré.",
-        ephemeral=True
-    ) 
+    await interaction.response.send_message(msg)
 @bot.tree.command(
     name="assign_team",
     description="Attribuer une équipe"
@@ -829,6 +845,8 @@ async def player_info(
     player: discord.Member
 ):
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
@@ -839,8 +857,12 @@ async def player_info(
                 deck
             FROM players
             WHERE discord_id = ?
+            AND guild_id = ?
             """,
-            (str(player.id),)
+            (
+                str(player.id),
+                guild_id
+            )
         )
 
         data = await cursor.fetchone()
@@ -848,7 +870,7 @@ async def player_info(
         if not data:
 
             await interaction.response.send_message(
-                "❌ Joueur non inscrit.", 
+                "❌ Joueur non inscrit.",
                 ephemeral=True
             )
 
@@ -858,13 +880,15 @@ async def player_info(
             """
             SELECT COUNT(*)
             FROM matches
-            WHERE status='approved'
+            WHERE guild_id = ?
+            AND status = 'approved'
             AND (
                 player_id = ?
                 OR opponent_id = ?
             )
             """,
             (
+                guild_id,
                 str(player.id),
                 str(player.id)
             )
@@ -874,11 +898,12 @@ async def player_info(
 
     msg = (
         f"👤 {data[0]}\n\n"
-        f"Équipe : {data[1]}\n"
-        f"Matchs joués : {matches[0]}"
-        )
+        f"🏆 Équipe : {data[1] or 'Aucune'}\n"
+        f"🎴 Deck : {data[2] or 'Non renseigné'}\n"
+        f"🎮 Matchs joués : {matches[0]}"
+    )
 
-    await interaction.response.send_message(msg) 
+    await interaction.response.send_message(msg)
 @bot.tree.command(
     name="match_history",
     description="Voir les matchs validés"
@@ -1569,82 +1594,74 @@ async def sync_teams(
         ephemeral=True
     )
 @bot.tree.command(
-    name="teams_info",
-    description="Affiche toutes les équipes"
+    name="team_info",
+    description="Voir les informations d'une équipe"
 )
-async def teams_info(
-    interaction: discord.Interaction
+@app_commands.autocomplete(team=team_autocomplete)
+async def team_info(
+    interaction: discord.Interaction,
+    team: str
 ):
+
+    guild_id = str(interaction.guild.id)
 
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
             """
-            SELECT
-                name,
-                captain,
-                wins,
-                losses,
-                points
+            SELECT points
             FROM teams
-            ORDER BY points DESC
-            """
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                team
+            )
         )
 
-        teams = await cursor.fetchall()
+        team_data = await cursor.fetchone()
 
-        if not teams:
+        if not team_data:
 
             await interaction.response.send_message(
-                "❌ Aucune équipe trouvée.",
+                "❌ Équipe introuvable.",
                 ephemeral=True
             )
 
             return
 
-        embed = discord.Embed(
-            title="🏆 Classement des équipes",
-            color=discord.Color.gold()
+        cursor = await db.execute(
+            """
+            SELECT username
+            FROM players
+            WHERE guild_id = ?
+            AND team_name = ?
+            ORDER BY username
+            """,
+            (
+                guild_id,
+                team
+            )
         )
 
-        for name, captain, wins, losses, points in teams:
+        players = await cursor.fetchall()
 
-            cursor = await db.execute(
-                """
-                SELECT username
-                FROM players
-                WHERE team_name = ?
-                ORDER BY username
-                """,
-                (name,)
-            )
-
-            members = await cursor.fetchall()
-
-            member_list = "\n".join(
-                f"• {member[0]}"
-                for member in members
-            )
-
-            if not member_list:
-                member_list = "Aucun membre"
-
-            embed.add_field(
-                name=name,
-                value=(
-                    f"👑 Capitaine : {captain or 'Non défini'}\n"
-                    f"🏅 Points : {points}\n"
-                    f"✅ Victoires : {wins}\n"
-                    f"❌ Défaites : {losses}\n\n"
-                    f"👥 Membres ({len(members)})\n"
-                    f"{member_list}"
-                ),
-                inline=False
-            )
-
-    await interaction.response.send_message(
-        embed=embed
+    msg = (
+        f"🏆 {team}\n\n"
+        f"Points : {team_data[0]}\n\n"
+        f"Membres :\n"
     )
+
+    if players:
+
+        for player in players:
+            msg += f"• {player[0]}\n"
+
+    else:
+        msg += "Aucun membre"
+
+    await interaction.response.send_message(msg)
 @bot.tree.command(
     name="setup_team_role",
     description="Associe une équipe à un rôle Discord"
@@ -1719,11 +1736,21 @@ async def set_points(
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT 1 FROM teams WHERE name = ?",
-            (team,)
+            """
+            SELECT 1
+            FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                team
+            )
         )
 
         if not await cursor.fetchone():
@@ -1734,8 +1761,17 @@ async def set_points(
             return
 
         await db.execute(
-            "UPDATE teams SET points = ? WHERE name = ?",
-            (points, team)
+            """
+            UPDATE teams
+            SET points = ?
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                points,
+                guild_id,
+                team
+            )
         )
 
         await db.commit()
