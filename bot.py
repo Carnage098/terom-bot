@@ -696,7 +696,6 @@ async def approve_result(
             "❌ Permission refusée.",
             ephemeral=True
         )
-
         return
 
     guild_id = str(interaction.guild.id)
@@ -729,7 +728,6 @@ async def approve_result(
                 "❌ Match introuvable.",
                 ephemeral=True
             )
-
             return
 
         player_team = match[0]
@@ -744,16 +742,6 @@ async def approve_result(
                 "❌ Match déjà traité.",
                 ephemeral=True
             )
-
-            return
-
-        if not player_team or not opponent_team:
-
-            await interaction.response.send_message(
-                "❌ Les deux joueurs doivent appartenir à une équipe.",
-                ephemeral=True
-            )
-
             return
 
         player_wins = int(score.split("-")[0])
@@ -772,7 +760,9 @@ async def approve_result(
         await db.execute(
             """
             UPDATE teams
-            SET points = points + ?
+            SET
+                points = points + ?,
+                wins = wins + 1
             WHERE guild_id = ?
             AND name = ?
             """,
@@ -784,18 +774,20 @@ async def approve_result(
         )
 
         await db.execute(
-            """
-            UPDATE teams
-            SET points = MAX(0, points - ?)
-            WHERE guild_id = ?
-            AND name = ?
-            """,
-            (
-                match_points,
-                guild_id,
-                loser_team
-            )
-        )
+    """
+    UPDATE teams
+    SET
+        points = points - ?,
+        losses = losses + 1
+    WHERE guild_id = ?
+    AND name = ?
+    """,
+    (
+        match_points,
+        guild_id,
+        loser_team
+    )
+)
 
         await db.execute(
             """
