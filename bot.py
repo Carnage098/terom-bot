@@ -356,6 +356,8 @@ async def report_result(
     opponent_deck: str = "Inconnu"
 ):
 
+    guild_id = str(interaction.guild.id)
+
     valid_scores = ["2-0", "2-1", "1-2", "0-2"]
 
     if score not in valid_scores:
@@ -368,15 +370,33 @@ async def report_result(
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT username, team_name FROM players WHERE discord_id = ?",
-            (str(interaction.user.id),)
+            """
+            SELECT username, team_name
+            FROM players
+            WHERE discord_id = ?
+            AND guild_id = ?
+            """,
+            (
+                str(interaction.user.id),
+                guild_id
+            )
         )
+
         player_data = await cursor.fetchone()
 
         cursor = await db.execute(
-            "SELECT username, team_name FROM players WHERE discord_id = ?",
-            (str(opponent.id),)
+            """
+            SELECT username, team_name
+            FROM players
+            WHERE discord_id = ?
+            AND guild_id = ?
+            """,
+            (
+                str(opponent.id),
+                guild_id
+            )
         )
+
         opponent_data = await cursor.fetchone()
 
         if not player_data:
@@ -396,6 +416,7 @@ async def report_result(
         await db.execute(
             """
             INSERT INTO matches(
+                guild_id,
                 player_id,
                 player_name,
                 opponent_id,
@@ -408,9 +429,10 @@ async def report_result(
                 opponent_deck,
                 status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                guild_id,
                 str(interaction.user.id),
                 player_data[0],
                 str(opponent.id),
@@ -431,65 +453,6 @@ async def report_result(
         f"✅ Résultat enregistré.\n📊 Valeur du match : {points} point(s).",
         ephemeral=True
     )
-
-
-# ==================================
-# PENDING RESULTS
-# ==================================
-
-@bot.tree.command(
-    name="pending_results",
-    description="Voir les résultats en attente"
-)
-async def pending_results(
-    interaction: discord.Interaction
-):
-
-    if not is_staff(interaction.user):
-
-        await interaction.response.send_message(
-            "❌ Permission refusée.",
-            ephemeral=True
-        )
-
-        return
-
-    async with aiosqlite.connect("database.db") as db:
-
-        cursor = await db.execute(
-            """
-            SELECT
-                id,
-                player_name,
-                opponent_name,
-                score
-            FROM matches
-            WHERE status='pending'
-            """
-        )
-
-        rows = await cursor.fetchall()
-
-    if not rows:
-
-        await interaction.response.send_message(
-            "✅ Aucun résultat en attente.",
-            ephemeral=True
-        )
-
-        return
-
-    msg = "📋 Résultats en attente\n\n"
-
-    for row in rows:
-
-        msg += (
-            f"#{row[0]} | "
-            f"{row[1]} vs {row[2]} "
-            f"({row[3]})\n"
-        )
-
-    await interaction.response.send_message(msg)
 # ==================================
 # APPROVE RESULT
 # ==================================
