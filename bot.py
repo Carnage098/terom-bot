@@ -2086,6 +2086,23 @@ async def pending_matches(
         msg,
         ephemeral=True
     )
+@bot.tree.command(
+    name="backup_db",
+    description="Télécharger la base de données"
+)
+async def backup_db(interaction: discord.Interaction):
+
+    if not is_staff(interaction.user):
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.send_message(
+        file=discord.File("database.db"),
+        ephemeral=True
+    )
 
 bot.run(TOKEN)
 
