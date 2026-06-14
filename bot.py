@@ -59,7 +59,6 @@ async def on_ready():
     print(f"{len(synced)} commandes synchronisées")
     print(f"Connecté en tant que {bot.user}")
     
-
 @bot.tree.command(
     name="register",
     description="S'inscrire au tournoi"
@@ -114,12 +113,11 @@ async def register(
             )
         )
 
-    await db.commit()
+        await db.commit()
 
     await interaction.response.send_message(
         "✅ Inscription réussie."
     )
-
 @bot.tree.command(
     name="create_team",
     description="Créer une équipe"
