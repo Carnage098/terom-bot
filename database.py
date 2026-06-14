@@ -13,6 +13,9 @@ async def init_db():
         await db.execute("""
         CREATE TABLE IF NOT EXISTS tournaments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            guild_id TEXT NOT NULL,
+
             name TEXT,
             active INTEGER DEFAULT 1
         )
@@ -26,14 +29,18 @@ async def init_db():
         CREATE TABLE IF NOT EXISTS teams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-            name TEXT UNIQUE NOT NULL,
+            guild_id TEXT NOT NULL,
+
+            name TEXT NOT NULL,
             tag TEXT DEFAULT '',
             captain TEXT DEFAULT '',
 
             wins INTEGER DEFAULT 0,
             losses INTEGER DEFAULT 0,
 
-            points INTEGER DEFAULT 0
+            points INTEGER DEFAULT 0,
+
+            UNIQUE(guild_id, name)
         )
         """)
 
@@ -43,7 +50,8 @@ async def init_db():
 
         await db.execute("""
         CREATE TABLE IF NOT EXISTS players (
-            discord_id TEXT PRIMARY KEY,
+            discord_id TEXT NOT NULL,
+            guild_id TEXT NOT NULL,
 
             username TEXT NOT NULL,
             deck TEXT,
@@ -53,8 +61,7 @@ async def init_db():
             wins INTEGER DEFAULT 0,
             losses INTEGER DEFAULT 0,
 
-            FOREIGN KEY(team_name)
-            REFERENCES teams(name)
+            PRIMARY KEY(discord_id, guild_id)
         )
         """)
 
@@ -65,6 +72,8 @@ async def init_db():
         await db.execute("""
         CREATE TABLE IF NOT EXISTS matches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            guild_id TEXT NOT NULL,
 
             player_id TEXT,
             player_name TEXT,
@@ -94,18 +103,14 @@ async def init_db():
 
         await db.execute("""
         CREATE TABLE IF NOT EXISTS team_roles (
-            team_name TEXT PRIMARY KEY,
-            role_id TEXT NOT NULL
+            guild_id TEXT NOT NULL,
+
+            team_name TEXT NOT NULL,
+            role_id TEXT NOT NULL,
+
+            PRIMARY KEY(guild_id, team_name)
         )
         """)
-
-        try:
-            await db.execute("""
-            ALTER TABLE matches
-            ADD COLUMN points INTEGER DEFAULT 1
-            """)
-        except:
-            pass
 
         await db.commit()
 
