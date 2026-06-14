@@ -192,12 +192,11 @@ async def create_team(
     name="delete_team",
     description="Supprimer une équipe"
 )
-
+@app_commands.autocomplete(name=team_autocomplete)
 async def delete_team(
     interaction: discord.Interaction,
     name: str
 ):
-    @app_commands.autocomplete(name=team_autocomplete)
 
     if not is_staff(interaction.user):
         await interaction.response.send_message(
