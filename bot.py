@@ -60,7 +60,10 @@ async def on_ready():
     print(f"Connecté en tant que {bot.user}")
     
 
-@bot.tree.command(name="register", description="S'inscrire au tournoi")
+@bot.tree.command(
+    name="register",
+    description="S'inscrire au tournoi"
+)
 async def register(
     interaction: discord.Interaction,
     deck: str = None
@@ -70,9 +73,9 @@ async def register(
 
     async with aiosqlite.connect("database.db") as db:
 
-        cur = await db.execute(
+        cursor = await db.execute(
             """
-            SELECT discord_id
+            SELECT 1
             FROM players
             WHERE discord_id = ?
             AND guild_id = ?
@@ -83,10 +86,10 @@ async def register(
             )
         )
 
-        if await cur.fetchone():
+        if await cursor.fetchone():
 
             await interaction.response.send_message(
-                "❌ Déjà inscrit.",
+                "❌ Tu es déjà inscrit.",
                 ephemeral=True
             )
 
@@ -106,7 +109,7 @@ async def register(
             (
                 str(interaction.user.id),
                 guild_id,
-                interaction.user.name,
+                interaction.user.display_name,
                 deck
             )
         )
