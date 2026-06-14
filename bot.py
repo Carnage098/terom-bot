@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -115,7 +114,7 @@ async def register(
             )
         )
 
-    await db.commit()
+        await db.commit()
 
     await interaction.response.send_message(
         "✅ Inscription réussie."
