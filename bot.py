@@ -1540,6 +1540,8 @@ async def sync_teams(
 
     await interaction.response.defer(ephemeral=True)
 
+    guild_id = str(interaction.guild.id)
+
     teams_synced = 0
     added = 0
     updated = 0
@@ -1548,9 +1550,13 @@ async def sync_teams(
 
         cursor = await db.execute(
             """
-            SELECT team_name, role_id
+            SELECT
+                team_name,
+                role_id
             FROM team_roles
-            """
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
         )
 
         configs = await cursor.fetchall()
@@ -1573,8 +1579,12 @@ async def sync_teams(
                     SELECT discord_id
                     FROM players
                     WHERE discord_id = ?
+                    AND guild_id = ?
                     """,
-                    (str(member.id),)
+                    (
+                        str(member.id),
+                        guild_id
+                    )
                 )
 
                 player = await cursor.fetchone()
@@ -1586,10 +1596,12 @@ async def sync_teams(
                         UPDATE players
                         SET team_name = ?
                         WHERE discord_id = ?
+                        AND guild_id = ?
                         """,
                         (
                             team_name,
-                            str(member.id)
+                            str(member.id),
+                            guild_id
                         )
                     )
 
@@ -1601,20 +1613,20 @@ async def sync_teams(
                         """
                         INSERT INTO players(
                             discord_id,
+                            guild_id,
                             username,
                             deck,
                             team_name
                         )
-                        VALUES (?, ?, NULL, ?)
+                        VALUES (?, ?, ?, NULL, ?)
                         """,
                         (
                             str(member.id),
+                            guild_id,
                             member.display_name,
                             team_name
                         )
                     )
-                
-                
 
                     added += 1
 
