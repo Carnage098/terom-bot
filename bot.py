@@ -1765,22 +1765,34 @@ async def setup_team_role(
 ):
 
     if not is_staff(interaction.user):
+
         await interaction.response.send_message(
             "❌ Permission refusée.",
             ephemeral=True
         )
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT name FROM teams WHERE name = ?",
-            (equipe,)
+            """
+            SELECT name
+            FROM teams
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                guild_id,
+                equipe
+            )
         )
 
         team = await cursor.fetchone()
 
         if not team:
+
             await interaction.response.send_message(
                 f"❌ L'équipe **{equipe}** n'existe pas.",
                 ephemeral=True
@@ -1789,11 +1801,15 @@ async def setup_team_role(
 
         await db.execute(
             """
-            INSERT OR REPLACE INTO team_roles
-            (team_name, role_id)
-            VALUES (?, ?)
+            INSERT OR REPLACE INTO team_roles(
+                guild_id,
+                team_name,
+                role_id
+            )
+            VALUES (?, ?, ?)
             """,
             (
+                guild_id,
                 equipe,
                 str(role.id)
             )
