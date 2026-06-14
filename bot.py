@@ -805,67 +805,7 @@ async def reject_result(
         f"❌ Match #{match_id} refusé.",
         ephemeral=True
     )
-@bot.tree.command(
-    name="team_info",
-    description="Voir les informations d'une équipe"
-)
 
-async def team_info(
-    interaction: discord.Interaction,
-    team: str
-):
-
-    async with aiosqlite.connect("database.db") as db:
-
-        cursor = await db.execute(
-            """
-            SELECT points
-            FROM teams
-            WHERE name = ?
-            """,
-            (team,)
-        )
-
-        team_data = await cursor.fetchone()
-
-        if not team_data:
-
-            await interaction.response.send_message(
-                "❌ Équipe introuvable.", 
-                ephemeral=True
-            )
-
-            return
-
-        cursor = await db.execute(
-            """
-            SELECT username
-            FROM players
-            WHERE team_name = ?
-            """
-            ,
-            (team,)
-        )
-
-        players = await cursor.fetchall()
-
-    msg = (
-        f"🏆 {team}\n\n"
-        f"Points : {team_data[0]}\n\n"
-        f"Membres :\n"
-    )
-
-    if players:
-
-        for player in players:
-
-            msg += f"• {player[0]}\n"
-
-    else:
-
-        msg += "Aucun membre"
-
-    await interaction.response.send_message(msg) 
 @bot.tree.command(
     name="player_info",
     description="Voir les informations d'un joueur"
