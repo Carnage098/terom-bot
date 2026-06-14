@@ -750,13 +750,13 @@ async def approve_result(
         status = match[3]
         match_points = match[4]
 
-    if not player_team or not opponent_team:
+        if not player_team or not opponent_team:
 
-    await interaction.response.send_message(
-        "❌ Une des équipes est invalide.",
-        ephemeral=True
-    )
-    return
+            await interaction.response.send_message(
+                "❌ Une des équipes est invalide.",
+                ephemeral=True
+            )
+            return
 
         if status != "pending":
 
@@ -796,20 +796,20 @@ async def approve_result(
         )
 
         await db.execute(
-    """
-    UPDATE teams
-    SET
-        points = points - ?,
-        losses = losses + 1
-    WHERE guild_id = ?
-    AND name = ?
-    """,
-    (
-        match_points,
-        guild_id,
-        loser_team
-    )
-)
+            """
+            UPDATE teams
+            SET
+                points = points - ?,
+                losses = losses + 1
+            WHERE guild_id = ?
+            AND name = ?
+            """,
+            (
+                match_points,
+                guild_id,
+                loser_team
+            )
+        )
 
         await db.execute(
             """
@@ -829,10 +829,10 @@ async def approve_result(
     await interaction.response.send_message(
         f"✅ Match #{match_id} validé.\n"
         f"🏆 {winner_team} gagne {match_points} point(s).\n"
-        f"📉 {loser_team} perd {match_points} point(s).",
+        f"📈 {winner_team} : +{match_points} pts\n"
+        f"📉 {loser_team} : -{match_points} pts",
         ephemeral=True
     )
-
 # ==================================
 # REJECT RESULT
 # ==================================
