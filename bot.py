@@ -210,6 +210,19 @@ async def delete_team(
     async with aiosqlite.connect("database.db") as db:
 
         await db.execute(
+    """
+    UPDATE players
+    SET team_name = NULL
+    WHERE guild_id = ?
+    AND team_name = ?
+    """,
+    (
+        guild_id,
+        name
+    )
+)
+
+        await db.execute(
             """
             DELETE FROM teams
             WHERE guild_id = ?
