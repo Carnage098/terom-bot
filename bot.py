@@ -1006,6 +1006,8 @@ async def end_tournament(
 
         return
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
@@ -1014,8 +1016,10 @@ async def end_tournament(
                 name,
                 points
             FROM teams
+            WHERE guild_id = ?
             ORDER BY points DESC
-            """
+            """,
+            (guild_id,)
         )
 
         teams = await cursor.fetchall()
@@ -1024,7 +1028,9 @@ async def end_tournament(
             """
             SELECT COUNT(*)
             FROM players
-            """
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
         )
 
         players_count = await cursor.fetchone()
@@ -1033,11 +1039,22 @@ async def end_tournament(
             """
             SELECT COUNT(*)
             FROM matches
-            WHERE status='approved'
-            """
+            WHERE guild_id = ?
+            AND status = 'approved'
+            """,
+            (guild_id,)
         )
 
         matches_count = await cursor.fetchone()
+
+    if not teams:
+
+        await interaction.response.send_message(
+            "❌ Aucune équipe trouvée.",
+            ephemeral=True
+        )
+
+        return
 
     msg = "🏆 TOURNOI TERMINÉ\n\n"
 
@@ -1047,10 +1064,7 @@ async def end_tournament(
 
     for i, team in enumerate(teams):
 
-        medal = ""
-
-        if i < 3:
-            medal = medals[i]
+        medal = medals[i] if i < 3 else ""
 
         msg += (
             f"{medal} "
@@ -1067,7 +1081,7 @@ async def end_tournament(
 
     msg += (
         f"🎮 Matchs validés : "
-        f"{matches_count[0]}\n"
+        f"{matches_count[0]}"
     )
 
     await interaction.response.send_message(msg)
@@ -1083,14 +1097,18 @@ async def deck_stats(
     interaction: discord.Interaction
 ):
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
             """
             SELECT player_deck
             FROM matches
-            WHERE status='approved'
-            """
+            WHERE guild_id = ?
+            AND status = 'approved'
+            """,
+            (guild_id,)
         )
 
         player_decks = await cursor.fetchall()
@@ -1099,35 +1117,20 @@ async def deck_stats(
             """
             SELECT opponent_deck
             FROM matches
-            WHERE status='approved'
-            """
+            WHERE guild_id = ?
+            AND status = 'approved'
+            """,
+            (guild_id,)
         )
 
         opponent_decks = await cursor.fetchall()
 
     deck_count = {}
-
     total = 0
 
-    for deck in player_decks:
+    for deck in player_decks + opponent_decks:
 
-        deck_name = deck[0]
-
-        if not deck_name:
-            deck_name = "Autres"
-
-        deck_count[deck_name] = (
-            deck_count.get(deck_name, 0) + 1
-        )
-
-        total += 1
-
-    for deck in opponent_decks:
-
-        deck_name = deck[0]
-
-        if not deck_name:
-            deck_name = "Autres"
+        deck_name = deck[0] or "Autres"
 
         deck_count[deck_name] = (
             deck_count.get(deck_name, 0) + 1
@@ -1141,10 +1144,9 @@ async def deck_stats(
             "❌ Aucune donnée disponible.",
             ephemeral=True
         )
-
         return
 
-    sorted_decks = sorted(
+    ranking = sorted(
         deck_count.items(),
         key=lambda x: x[1],
         reverse=True
@@ -1152,7 +1154,7 @@ async def deck_stats(
 
     msg = "📊 Decks les plus joués\n\n"
 
-    for deck, count in sorted_decks:
+    for deck, count in ranking:
 
         percentage = round(
             (count / total) * 100,
@@ -1161,8 +1163,7 @@ async def deck_stats(
 
         msg += (
             f"{deck} : "
-            f"{percentage}% "
-            f"({count})\n"
+            f"{percentage}% ({count})\n"
         )
 
     await interaction.response.send_message(msg)
@@ -1178,6 +1179,8 @@ async def winrate_stats(
     interaction: discord.Interaction
 ):
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
@@ -1187,8 +1190,10 @@ async def winrate_stats(
                 player_deck,
                 opponent_deck
             FROM matches
-            WHERE status='approved'
-            """
+            WHERE guild_id = ?
+            AND status = 'approved'
+            """,
+            (guild_id,)
         )
 
         matches = await cursor.fetchall()
@@ -1199,7 +1204,6 @@ async def winrate_stats(
             "❌ Aucun match validé.",
             ephemeral=True
         )
-
         return
 
     stats = {}
@@ -1212,11 +1216,15 @@ async def winrate_stats(
         player_wins = int(score.split("-")[0])
         opponent_wins = int(score.split("-")[1])
 
-        if player_deck not in stats:
-            stats[player_deck] = {"wins": 0, "games": 0}
+        stats.setdefault(
+            player_deck,
+            {"wins": 0, "games": 0}
+        )
 
-        if opponent_deck not in stats:
-            stats[opponent_deck] = {"wins": 0, "games": 0}
+        stats.setdefault(
+            opponent_deck,
+            {"wins": 0, "games": 0}
+        )
 
         stats[player_deck]["games"] += 1
         stats[opponent_deck]["games"] += 1
@@ -1226,21 +1234,17 @@ async def winrate_stats(
         else:
             stats[opponent_deck]["wins"] += 1
 
-    msg = "📈 Winrates des decks\n\n"
-
     ranking = []
 
     for deck, data in stats.items():
 
-        winrate = round(
-            (data["wins"] / data["games"]) * 100,
-            1
-        )
-
         ranking.append(
             (
                 deck,
-                winrate,
+                round(
+                    data["wins"] / data["games"] * 100,
+                    1
+                ),
                 data["games"]
             )
         )
@@ -1249,6 +1253,8 @@ async def winrate_stats(
         key=lambda x: x[1],
         reverse=True
     )
+
+    msg = "📈 Winrates des decks\n\n"
 
     for deck, winrate, games in ranking:
 
@@ -1277,18 +1283,29 @@ async def staff_panel(
             "❌ Permission refusée.",
             ephemeral=True
         )
-
         return
+
+    guild_id = str(interaction.guild.id)
 
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
-            "SELECT COUNT(*) FROM players"
+            """
+            SELECT COUNT(*)
+            FROM players
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
         )
         players = (await cursor.fetchone())[0]
 
         cursor = await db.execute(
-            "SELECT COUNT(*) FROM teams"
+            """
+            SELECT COUNT(*)
+            FROM teams
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
         )
         teams = (await cursor.fetchone())[0]
 
@@ -1296,8 +1313,10 @@ async def staff_panel(
             """
             SELECT COUNT(*)
             FROM matches
-            WHERE status='approved'
-            """
+            WHERE guild_id = ?
+            AND status='approved'
+            """,
+            (guild_id,)
         )
         approved = (await cursor.fetchone())[0]
 
@@ -1305,8 +1324,10 @@ async def staff_panel(
             """
             SELECT COUNT(*)
             FROM matches
-            WHERE status='pending'
-            """
+            WHERE guild_id = ?
+            AND status='pending'
+            """,
+            (guild_id,)
         )
         pending = (await cursor.fetchone())[0]
 
@@ -1337,29 +1358,37 @@ async def reset_tournament(
             "❌ Réservé aux administrateurs.",
             ephemeral=True
         )
-
         return
+
+    guild_id = str(interaction.guild.id)
 
     async with aiosqlite.connect("database.db") as db:
 
-        await db.execute("DELETE FROM players")
-        await db.execute("DELETE FROM matches")
+        await db.execute(
+            "DELETE FROM players WHERE guild_id = ?",
+            (guild_id,)
+        )
+
+        await db.execute(
+            "DELETE FROM matches WHERE guild_id = ?",
+            (guild_id,)
+        )
 
         await db.execute(
             """
             UPDATE teams
             SET points = 0
-            """
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
         )
 
         await db.commit()
 
     await interaction.response.send_message(
         "♻️ Tournoi réinitialisé.\n"
-        "Les équipes officielles ont été conservées."
-    ) 
-
-from charts import create_deck_graph
+        "Les équipes ont été conservées."
+    )
 @bot.tree.command(
     name="deck_graph",
     description="Graphique des decks les plus joués"
@@ -1368,14 +1397,18 @@ async def deck_graph(
     interaction: discord.Interaction
 ):
 
+    guild_id = str(interaction.guild.id)
+
     async with aiosqlite.connect("database.db") as db:
 
         cursor = await db.execute(
             """
             SELECT player_deck
             FROM matches
-            WHERE status='approved'
-            """
+            WHERE guild_id = ?
+            AND status = 'approved'
+            """,
+            (guild_id,)
         )
 
         decks = await cursor.fetchall()
@@ -1396,7 +1429,6 @@ async def deck_graph(
             "❌ Aucune donnée.",
             ephemeral=True
         )
-
         return
 
     data = sorted(
@@ -1415,7 +1447,6 @@ async def deck_graph(
     await interaction.response.send_message(
         file=discord.File(filename)
     )
-from exporter import export_matches
 @bot.tree.command(
     name="export_tournament",
     description="Exporter le tournoi"
@@ -1430,8 +1461,9 @@ async def export_tournament(
             "❌ Permission refusée.",
             ephemeral=True
         )
-
         return
+
+    guild_id = str(interaction.guild.id)
 
     async with aiosqlite.connect("database.db") as db:
 
@@ -1445,7 +1477,9 @@ async def export_tournament(
                 opponent_deck,
                 status
             FROM matches
-            """
+            WHERE guild_id = ?
+            """,
+            (guild_id,)
         )
 
         matches = await cursor.fetchall()
