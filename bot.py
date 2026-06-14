@@ -2046,5 +2046,70 @@ async def teams_info(
         embed=embed
     )
 
+@bot.tree.command(
+    name="pending_matches",
+    description="Voir les matchs en attente"
+)
+async def pending_matches(
+    interaction: discord.Interaction
+):
+
+    if not is_staff(interaction.user):
+
+        await interaction.response.send_message(
+            "❌ Permission refusée.",
+            ephemeral=True
+        )
+
+        return
+
+    guild_id = str(interaction.guild.id)
+
+    async with aiosqlite.connect("database.db") as db:
+
+        cursor = await db.execute(
+            """
+            SELECT
+                id,
+                player_name,
+                opponent_name,
+                score,
+                points
+            FROM matches
+            WHERE guild_id = ?
+            AND status = 'pending'
+            ORDER BY id DESC
+            """,
+            (guild_id,)
+        )
+
+        matches = await cursor.fetchall()
+
+    if not matches:
+
+        await interaction.response.send_message(
+            "✅ Aucun match en attente.",
+            ephemeral=True
+        )
+
+        return
+
+    msg = "⏳ Matchs en attente\n\n"
+
+    for match in matches:
+
+        msg += (
+            f"#{match[0]} | "
+            f"{match[1]} "
+            f"{match[3]} "
+            f"{match[2]} "
+            f"({match[4]} pts)\n"
+        )
+
+    await interaction.response.send_message(
+        msg,
+        ephemeral=True
+    )
+
 bot.run(TOKEN)
 
